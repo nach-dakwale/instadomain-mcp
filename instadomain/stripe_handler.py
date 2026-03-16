@@ -38,8 +38,8 @@ def create_checkout_session(
                 "order_id": order_id,
                 "domain": domain,
             },
-            "success_url": "https://instadomain.dev/success?session_id={CHECKOUT_SESSION_ID}",
-            "cancel_url": "https://instadomain.dev/cancel",
+            "success_url": "https://instadomain.fly.dev/success?session_id={CHECKOUT_SESSION_ID}",
+            "cancel_url": "https://instadomain.fly.dev/cancel",
             "expires_at": _expires_at_24h(),
         }
     )

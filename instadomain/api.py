@@ -115,6 +115,14 @@ def create_app() -> FastAPI:
     async def health():
         return {"status": "ok"}
 
+    @app.get("/success", response_class=HTMLResponse)
+    async def success():
+        return "<html><body><h1>Domain purchase successful!</h1><p>You can close this tab. Your AI assistant is tracking the order.</p></body></html>"
+
+    @app.get("/cancel", response_class=HTMLResponse)
+    async def cancel():
+        return "<html><body><h1>Purchase cancelled</h1><p>No charge was made. You can close this tab.</p></body></html>"
+
     @app.get("/terms", response_class=HTMLResponse)
     async def terms():
         return (_STATIC_DIR / "terms.html").read_text()
