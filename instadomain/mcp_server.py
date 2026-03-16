@@ -37,11 +37,16 @@ mcp = FastMCP("instadomain")
 async def check_domain(domain: str) -> dict:
     """Check if a domain is available for purchase and get its price.
 
+    Always call this before buy_domain. Show the user the price_display
+    value (e.g. "$18.12") and confirm they want to proceed before buying.
+
     Args:
         domain: The full domain name to check (e.g. "coolstartup.com").
 
     Returns:
         Dict with availability status, price in cents, and formatted price.
+        If available, includes price_cents and price_display for the
+        1-year registration cost.
     """
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
         resp = await client.get(f"/check/{domain}")
@@ -53,8 +58,14 @@ async def check_domain(domain: str) -> dict:
 async def buy_domain(domain: str) -> dict:
     """Start the purchase flow for an available domain.
 
+    IMPORTANT: Before calling this tool, you MUST first call check_domain
+    to get the price, then clearly show the user the price and get their
+    explicit confirmation before proceeding. Never call buy_domain without
+    the user seeing and approving the price first.
+
     Creates a Stripe checkout session. Returns a checkout URL that the
-    user should open to complete payment, plus the order ID for tracking.
+    user should open in their browser to complete payment securely via
+    Stripe, plus the order ID for tracking.
 
     Args:
         domain: The domain to purchase (e.g. "coolstartup.com").

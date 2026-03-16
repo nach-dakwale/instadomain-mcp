@@ -1,44 +1,32 @@
-{
-  "app": "instadomain",
-  "primary_region": "sjc",
+app = "instadomain"
+primary_region = "sjc"
 
-  "build": {
-    "dockerfile": "Dockerfile.instadomain"
-  },
+[build]
+  dockerfile = "Dockerfile.instadomain"
 
-  "env": {
-    "PORT": "8080"
-  },
+[env]
+  PORT = "8080"
 
-  "http_service": {
-    "internal_port": 8080,
-    "force_https": true,
-    "auto_stop_machines": true,
-    "auto_start_machines": true,
-    "min_machines_running": 1,
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
 
-    "concurrency": {
-      "type": "requests",
-      "hard_limit": 250,
-      "soft_limit": 200
-    },
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
 
-    "checks": [
-      {
-        "interval": "30s",
-        "timeout": "5s",
-        "grace_period": "10s",
-        "method": "GET",
-        "path": "/health"
-      }
-    ]
-  },
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
 
-  "vm": [
-    {
-      "memory": "512mb",
-      "cpu_kind": "shared",
-      "cpus": 1
-    }
-  ]
-}
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import secrets
+import string
 import xml.etree.ElementTree as ET
 
 import httpx
@@ -42,6 +44,12 @@ class OpenSRSClient:
         self.api_key = api_key
         self.reseller_username = reseller_username
         self.api_url = api_url
+
+    @staticmethod
+    def _random_password(length: int = 16) -> str:
+        """Generate a random registrant password for OpenSRS."""
+        alphabet = string.ascii_letters + string.digits + "!@#$"
+        return "".join(secrets.choice(alphabet) for _ in range(length))
 
     def _sign(self, xml_body: str) -> str:
         """Compute MD5 signature: md5(md5(xml + key) + key)."""
@@ -179,17 +187,25 @@ class OpenSRSClient:
             "billing": contact,
             "tech": contact,
         }
-        ns_list = {str(i + 1): {"name": ns} for i, ns in enumerate(nameservers)}
+        ns_list = [
+            {"name": ns, "sortorder": str(i + 1)}
+            for i, ns in enumerate(nameservers)
+        ]
 
         attrs = {
             "domain": domain,
-            "period": years,
+            "period": str(years),
             "reg_username": self.reseller_username,
+            "reg_password": self._random_password(),
             "reg_type": "new",
-            "custom_nameservers": 1,
+            "handle": "process",
+            "custom_nameservers": "1",
+            "custom_tech_contact": "0",
+            "f_lock_domain": "1",
+            "f_whois_privacy": "1",
+            "auto_renew": "0",
             "nameserver_list": ns_list,
             "contact_set": contact_set,
-            "whois_privacy_state": "enable",
         }
 
         xml_body = self._build_envelope("SW_REGISTER", "DOMAIN", attrs)
