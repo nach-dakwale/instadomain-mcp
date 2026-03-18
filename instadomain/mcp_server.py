@@ -1,9 +1,11 @@
 """InstaDomain MCP server -- thin HTTP client over the backend API.
 
 Tools:
-  - check_domain     : check availability + price for a domain
-  - buy_domain       : initiate purchase via Stripe checkout
-  - get_domain_status: poll order status until complete or failed
+  - check_domain      : check availability + price for a single domain
+  - check_domains_bulk: check up to 50 domains at once (RDAP, no pricing)
+  - suggest_domains   : generate + check domain name ideas for a keyword
+  - buy_domain        : initiate purchase via Stripe checkout
+  - get_domain_status : poll order status until complete or failed
 """
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ from fastmcp import FastMCP
 BACKEND_URL = os.environ.get("INSTADOMAIN_BACKEND_URL", "https://instadomain.fly.dev")
 POLL_INTERVAL_SECONDS = 3
 POLL_TIMEOUT_SECONDS = 120
+BULK_LIMIT = 50
 
 # ---------------------------------------------------------------------------
 # MCP server
@@ -116,6 +119,46 @@ async def get_domain_status(order_id: str) -> dict:
                 return data
 
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+
+@mcp.tool()
+async def check_domains_bulk(domains: list[str]) -> dict:
+    """Check availability of up to 50 domain names in one call.
+
+    Uses fast RDAP lookups (no pricing). Returns a summary with
+    total/available/taken counts plus per-domain details and affiliate
+    registration links for available domains.
+
+    Args:
+        domains: List of domain names to check (max 50).
+    """
+    if len(domains) > BULK_LIMIT:
+        return {
+            "error": f"Too many domains: {len(domains)} provided, maximum is {BULK_LIMIT}.",
+            "limit": BULK_LIMIT,
+        }
+
+    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=30) as client:
+        resp = await client.post("/check", json={"domains": domains})
+        resp.raise_for_status()
+        return resp.json()
+
+
+@mcp.tool()
+async def suggest_domains(keyword: str) -> dict:
+    """Generate domain name ideas from a keyword and check their availability.
+
+    Uses common prefix/suffix patterns to generate 10-15 domain candidates
+    across .com, .io, .ai, .dev, .co and checks all of them via fast RDAP
+    lookups. Returns available domains with affiliate registration links.
+
+    Args:
+        keyword: A keyword or short business name (e.g. "taskflow").
+    """
+    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=30) as client:
+        resp = await client.get("/suggest", params={"keyword": keyword})
+        resp.raise_for_status()
+        return resp.json()
 
 
 # ---------------------------------------------------------------------------

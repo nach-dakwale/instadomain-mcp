@@ -6,9 +6,9 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -31,6 +31,7 @@ from instadomain.stripe_handler import (
     verify_webhook,
     process_webhook_event,
 )
+from instadomain.affiliate import add_affiliate_links
 from instadomain.mcp_server import mcp
 
 logger = logging.getLogger(__name__)
@@ -59,9 +60,59 @@ async def _get_price(domain: str, opensrs: OpenSRSClient) -> int:
     return await asyncio.to_thread(opensrs.get_price, domain)
 
 
+async def _check_domains_rdap(domains: list[str]) -> list[dict]:
+    """Check multiple domains via RDAP concurrently. Returns list of dicts."""
+    from domain_lookup import check_domains
+    results = await check_domains(domains)
+    return [{"available": r.available, "domain": r.domain} for r in results]
+
+
+# ---------------------------------------------------------------------------
+# Domain suggestion patterns (ported from DomainCheckr)
+# ---------------------------------------------------------------------------
+
+_SUFFIXES = [
+    ".com", "app.com", ".io", ".co", ".dev", ".ai",
+    "hq.com", "ly.com", "hub.com", "lab.com",
+]
+_PREFIXES = ["get", "my", "try", "go", "the"]
+
+
+def _generate_candidates(keyword: str) -> list[str]:
+    """Generate domain name ideas from a keyword using prefix/suffix patterns."""
+    kw = keyword.strip().lower().replace(" ", "")
+    candidates: list[str] = []
+
+    for suffix in _SUFFIXES:
+        candidates.append(f"{kw}{suffix}")
+
+    for prefix in _PREFIXES:
+        candidates.append(f"{prefix}{kw}.com")
+
+    seen: set[str] = set()
+    unique: list[str] = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            unique.append(c)
+
+    return unique[:15]
+
+
 # ---------------------------------------------------------------------------
 # Request / Response models
 # ---------------------------------------------------------------------------
+
+class BulkCheckRequest(BaseModel):
+    domains: list[str]
+
+    @field_validator("domains")
+    @classmethod
+    def max_fifty(cls, v: list[str]) -> list[str]:
+        if len(v) > 50:
+            raise ValueError("Maximum 50 domains per request")
+        return v
+
 
 class BuyRequest(BaseModel):
     domain: str
@@ -153,6 +204,46 @@ def create_app() -> FastAPI:
                 response["price_cents"] = None
                 response["price_display"] = None
         return response
+
+    @app.post("/check")
+    @app_limiter.limit("10/minute")
+    async def check_bulk(body: BulkCheckRequest, request: Request):
+        """Check availability of up to 50 domains via RDAP (no pricing)."""
+        settings = Settings()
+        raw_results = await _check_domains_rdap(body.domains)
+        enriched = [add_affiliate_links(r, settings) for r in raw_results]
+        available = [r for r in enriched if r.get("available")]
+        taken = [r for r in enriched if not r.get("available")]
+        return {
+            "summary": {
+                "total": len(enriched),
+                "available": len(available),
+                "taken": len(taken),
+            },
+            "available": available,
+            "taken": taken,
+        }
+
+    @app.get("/suggest")
+    @app_limiter.limit("10/minute")
+    async def suggest(request: Request, keyword: str = Query(..., min_length=1, description="Keyword to build domain ideas from")):
+        """Generate and check domain suggestions for a keyword."""
+        settings = Settings()
+        candidates = _generate_candidates(keyword)
+        raw_results = await _check_domains_rdap(candidates)
+        enriched = [add_affiliate_links(r, settings) for r in raw_results]
+        available = [r for r in enriched if r.get("available")]
+        taken = [r for r in enriched if not r.get("available")]
+        return {
+            "keyword": keyword,
+            "candidates_checked": len(enriched),
+            "summary": {
+                "available": len(available),
+                "taken": len(taken),
+            },
+            "available": available,
+            "taken": taken,
+        }
 
     @app.post("/buy")
     @app_limiter.limit("5/minute")

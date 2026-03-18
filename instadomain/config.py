@@ -23,3 +23,7 @@ class Settings(BaseSettings):
 
     standard_markup_cents: int = 210
     premium_markup_pct: float = 0.25
+
+    # Affiliate links
+    dynadot_affiliate_id: str = "PLACEHOLDER_DYNADOT"
+    enable_affiliate_links: bool = True
