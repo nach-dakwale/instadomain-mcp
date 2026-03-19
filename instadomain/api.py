@@ -183,6 +183,12 @@ def create_app() -> FastAPI:
         from fastapi.responses import PlainTextResponse
         return PlainTextResponse((_STATIC_DIR / "llms.txt").read_text())
 
+    @app.get("/.well-known/mcp.json")
+    async def mcp_json():
+        from fastapi.responses import JSONResponse
+        import json
+        return JSONResponse(json.loads((_STATIC_DIR / "mcp.json").read_text()))
+
     @app.get("/terms", response_class=HTMLResponse)
     async def terms():
         return (_STATIC_DIR / "terms.html").read_text()

@@ -37,16 +37,16 @@
     <style>
         :root {
             color-scheme: dark;
-            --bg: #050816;
-            --panel: rgba(13, 20, 43, 0.72);
-            --panel-strong: rgba(15, 24, 52, 0.92);
-            --line: rgba(166, 185, 255, 0.16);
-            --text: #f5f7ff;
-            --muted: #a8b2d8;
-            --accent: #79e6c4;
+            --bg: #0a0a0a;
+            --panel: rgba(255, 255, 255, 0.04);
+            --panel-strong: rgba(255, 255, 255, 0.06);
+            --line: rgba(255, 255, 255, 0.1);
+            --text: #ededed;
+            --muted: #a0a0a0;
+            --accent: #47d4a0;
             --warning: #ffd479;
-            --shadow: 0 30px 80px rgba(0, 0, 0, 0.42);
-            --radius: 24px;
+            --shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+            --radius: 16px;
             --max: 1180px;
         }
         * { box-sizing: border-box; }
@@ -55,10 +55,7 @@
             margin: 0;
             min-height: 100vh;
             font-family: Inter, "SF Pro Display", "Segoe UI", sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(122, 230, 196, 0.18), transparent 32%),
-                radial-gradient(circle at top right, rgba(138, 180, 255, 0.18), transparent 30%),
-                linear-gradient(180deg, #07101f 0%, #050816 50%, #040611 100%);
+            background: #0a0a0a;
             color: var(--text);
             line-height: 1.55;
         }
@@ -68,7 +65,7 @@
         .brand { display: inline-flex; align-items: center; gap: 12px; font-size: 0.96rem; font-weight: 700; letter-spacing: 0.02em; }
         .brand-mark {
             width: 34px; height: 34px; border-radius: 12px; display: grid; place-items: center;
-            background: linear-gradient(135deg, rgba(121, 230, 196, 0.24), rgba(138, 180, 255, 0.24));
+            background: rgba(71, 212, 160, 0.15);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .nav-links { display: flex; gap: 18px; color: var(--muted); font-size: 0.92rem; }
@@ -82,7 +79,7 @@
         .eyebrow, .pill {
             display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 14px;
             border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #d9e3ff; font-size: 0.82rem; letter-spacing: 0.01em;
+            color: #b0b0b0; font-size: 0.82rem; letter-spacing: 0.01em;
         }
         .hero h1 { margin: 18px 0; max-width: 14ch; font-size: clamp(3rem, 7vw, 5.5rem); line-height: 0.95; letter-spacing: -0.06em; }
         .hero p { margin: 0; max-width: 50ch; color: var(--muted); font-size: 1.07rem; }
@@ -92,14 +89,14 @@
             display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 18px;
             border-radius: 14px; font-size: 0.96rem; font-weight: 700;
         }
-        .button { background: linear-gradient(135deg, var(--accent), #8ff2d2); color: #051116; }
+        .button { background: var(--accent); color: #0a0a0a; }
         .button-secondary { border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); color: var(--text); }
         .hero-card {
             position: relative; padding: 22px; border-radius: 30px;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)), var(--panel-strong);
+            background: var(--panel-strong);
             border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: var(--shadow); overflow: hidden;
         }
-        .terminal { padding: 18px; border-radius: 22px; background: rgba(4, 8, 18, 0.82); border: 1px solid rgba(255, 255, 255, 0.06); }
+        .terminal { padding: 18px; border-radius: 22px; background: #111; border: 1px solid rgba(255, 255, 255, 0.06); }
         .terminal-top { display: flex; gap: 8px; margin-bottom: 16px; }
         .terminal-top span { width: 10px; height: 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); }
         .terminal pre, .connect code, .snippet pre {
@@ -107,7 +104,7 @@
             font-family: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
             font-size: 0.92rem; line-height: 1.6;
         }
-        .line-label { color: #89a0db; }
+        .line-label { color: #888; }
         .line-command { color: #f5f7ff; }
         .line-good { color: var(--accent); }
         .line-note { color: var(--warning); }
@@ -125,24 +122,24 @@
         .card { padding: 22px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
         .step-number {
             display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; margin-bottom: 16px;
-            background: rgba(121, 230, 196, 0.12); color: var(--accent); font-weight: 800;
+            background: rgba(71, 212, 160, 0.12); color: var(--accent); font-weight: 800;
         }
         .card h3 { margin: 0 0 10px; font-size: 1.1rem; }
         .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
         .capability { min-height: 160px; }
         .capability small {
-            display: inline-block; margin-bottom: 12px; color: #9cc8ff; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem;
+            display: inline-block; margin-bottom: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem;
         }
         .capability strong { display: block; margin-bottom: 10px; font-size: 1.04rem; }
         .price-kicker, .api-kicker {
-            display: inline-block; margin-bottom: 12px; color: #9cc8ff; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem;
+            display: inline-block; margin-bottom: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem;
         }
         .pricing-table {
             width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 20px; border: 1px solid var(--line);
             background: rgba(255, 255, 255, 0.03);
         }
         .pricing-table th, .pricing-table td { padding: 16px 18px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
-        .pricing-table th { color: #cdd7fa; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; }
+        .pricing-table th { color: #999; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; }
         .pricing-table td { font-size: 0.97rem; color: var(--text); }
         .pricing-note { margin-top: 14px; color: var(--muted); font-size: 0.92rem; }
         .route-list { display: grid; gap: 10px; margin-top: 18px; }
@@ -154,15 +151,15 @@
         .connect-stack { display: grid; gap: 18px; }
         .copy-row { display: flex; gap: 12px; align-items: stretch; margin-top: 16px; }
         .copy-target, .snippet {
-            padding: 16px; border-radius: 18px; background: rgba(4, 8, 18, 0.82); border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 16px; border-radius: 18px; background: #111; border: 1px solid rgba(255, 255, 255, 0.08);
         }
-        .copy-target { flex: 1; display: flex; align-items: center; color: #dce6ff; overflow-x: auto; }
+        .copy-target { flex: 1; display: flex; align-items: center; color: #ccc; overflow-x: auto; }
         .copy-button {
             border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.05); color: var(--text);
             border-radius: 14px; padding: 0 16px; min-width: 108px; font: inherit; font-weight: 700; cursor: pointer;
         }
         .mini-label {
-            display: block; margin-bottom: 10px; color: #9cc8ff; font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase;
+            display: block; margin-bottom: 10px; color: var(--accent); font-size: 0.78rem; letter-spacing: 0.09em; text-transform: uppercase;
         }
         footer { padding: 32px 0 56px; color: var(--muted); font-size: 0.92rem; }
         .footer-row {

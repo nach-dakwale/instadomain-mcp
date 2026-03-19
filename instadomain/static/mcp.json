@@ -1,0 +1,65 @@
+{
+  "mcp": {
+    "name": "instadomain",
+    "description": "Check availability, suggest names, and purchase domains. Handles Stripe checkout, OpenSRS registration, and Cloudflare DNS setup automatically.",
+    "url": "https://instadomain.fly.dev/mcp/",
+    "transport": "streamable-http",
+    "authentication": "none",
+    "tools": [
+      {
+        "name": "check_domain",
+        "description": "Check if a domain is available and get its price. Always call before buy_domain.",
+        "parameters": {
+          "domain": "string (e.g. 'coolstartup.com')"
+        }
+      },
+      {
+        "name": "check_domains_bulk",
+        "description": "Check availability of up to 50 domains in one call via RDAP.",
+        "parameters": {
+          "domains": "list of strings (max 50)"
+        }
+      },
+      {
+        "name": "suggest_domains",
+        "description": "Generate domain name ideas from a keyword and check availability across .com, .io, .ai, .dev, .co.",
+        "parameters": {
+          "keyword": "string (e.g. 'taskflow')"
+        }
+      },
+      {
+        "name": "buy_domain",
+        "description": "Start purchase via Stripe checkout. Show user the price from check_domain first.",
+        "parameters": {
+          "domain": "string"
+        }
+      },
+      {
+        "name": "get_domain_status",
+        "description": "Poll order status until registration completes. Returns nameservers and Cloudflare DNS API token.",
+        "parameters": {
+          "order_id": "string (e.g. 'ord_abc123')"
+        }
+      }
+    ],
+    "pricing": {
+      "model": "wholesale + flat markup",
+      "examples": {
+        ".com": "~$14",
+        ".dev": "~$19",
+        ".io": "~$45"
+      },
+      "includes": ["WHOIS privacy", "Cloudflare DNS zone", "Scoped API token"]
+    },
+    "rest_api": {
+      "base_url": "https://instadomain.fly.dev",
+      "authentication": "none",
+      "endpoints": [
+        {"method": "GET", "path": "/check/{domain}", "description": "Check one domain"},
+        {"method": "POST", "path": "/check", "description": "Bulk check up to 50 domains"},
+        {"method": "GET", "path": "/suggest?keyword=X", "description": "Generate and check name ideas"},
+        {"method": "GET", "path": "/docs", "description": "OpenAPI documentation"}
+      ]
+    }
+  }
+}
