@@ -174,6 +174,10 @@ def create_app() -> FastAPI:
     async def cancel():
         return "<html><body><h1>Purchase cancelled</h1><p>No charge was made. You can close this tab.</p></body></html>"
 
+    @app.get("/", response_class=HTMLResponse)
+    async def index():
+        return (_STATIC_DIR / "index.html").read_text()
+
     @app.get("/terms", response_class=HTMLResponse)
     async def terms():
         return (_STATIC_DIR / "terms.html").read_text()
