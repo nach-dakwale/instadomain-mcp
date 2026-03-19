@@ -18,6 +18,6 @@ def test_root_serves_landing_page():
         response = client.get("/")
 
     assert response.status_code == 200
-    assert "Tell your AI to buy the domain and keep shipping." in response.text
+    assert "Your AI buys the domain. You keep building." in response.text
     assert "https://instadomain.fly.dev/mcp/" in response.text
     assert "GET /check/{domain}" in response.text

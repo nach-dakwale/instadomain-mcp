@@ -84,8 +84,8 @@
             border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08);
             color: #d9e3ff; font-size: 0.82rem; letter-spacing: 0.01em;
         }
-        .hero h1 { margin: 18px 0; max-width: 11ch; font-size: clamp(3rem, 7vw, 5.5rem); line-height: 0.95; letter-spacing: -0.06em; }
-        .hero p { margin: 0; max-width: 60ch; color: var(--muted); font-size: 1.07rem; }
+        .hero h1 { margin: 18px 0; max-width: 14ch; font-size: clamp(3rem, 7vw, 5.5rem); line-height: 0.95; letter-spacing: -0.06em; }
+        .hero p { margin: 0; max-width: 50ch; color: var(--muted); font-size: 1.07rem; }
         .hero-copy { display: flex; flex-direction: column; justify-content: center; }
         .actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 14px; }
         .button, .button-secondary {
@@ -129,11 +129,14 @@
         }
         .card h3 { margin: 0 0 10px; font-size: 1.1rem; }
         .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
-        .capability { min-height: 185px; }
-        .capability small, .price-kicker, .api-kicker {
+        .capability { min-height: 160px; }
+        .capability small {
             display: inline-block; margin-bottom: 12px; color: #9cc8ff; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem;
         }
         .capability strong { display: block; margin-bottom: 10px; font-size: 1.04rem; }
+        .price-kicker, .api-kicker {
+            display: inline-block; margin-bottom: 12px; color: #9cc8ff; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem;
+        }
         .pricing-table {
             width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 20px; border: 1px solid var(--line);
             background: rgba(255, 255, 255, 0.03);
@@ -190,7 +193,6 @@
             </a>
             <nav class="nav-links">
                 <a href="#how">How it works</a>
-                <a href="#capabilities">Capabilities</a>
                 <a href="#pricing">Pricing</a>
                 <a href="#connect">Connect</a>
             </nav>
@@ -198,9 +200,9 @@
         <main id="top">
             <section class="hero">
                 <div class="hero-copy">
-                    <span class="eyebrow">MCP for domain buying, without the registrar circus</span>
-                    <h1>Tell your AI to buy the domain and keep shipping.</h1>
-                    <p>You're in flow building the next thing. You need a domain. Instead of breaking focus to fight GoDaddy upsells, compare tabs, and wire DNS manually, you tell your AI what you want. It checks availability, buys the domain, and hands back a live zone with DNS ready to go. You never leave your editor.</p>
+                    <span class="eyebrow">MCP server for domains</span>
+                    <h1>Your AI buys the domain. You keep building.</h1>
+                    <p>Connect once. Your AI assistant checks availability, suggests names, handles checkout, and sets up DNS. You never leave your editor.</p>
                     <div class="actions">
                         <a class="button" href="#connect">Connect InstaDomain</a>
                         <a class="button-secondary" href="#pricing">See pricing</a>
@@ -209,89 +211,83 @@
                 <div class="hero-card">
                     <div class="terminal">
                         <div class="terminal-top"><span></span><span></span><span></span></div>
-<pre><span class="line-label">you:</span> <span class="line-command">find a clean .com for my AI notes app and buy the best one</span>
-<span class="line-label">assistant:</span> <span class="line-command">Checking names with InstaDomain...</span>
-<span class="line-good">notesprint.com is available for $14.xx</span>
-<span class="line-command">Opening Stripe checkout, then I'll finish setup.</span>
-<span class="line-good">Domain registered.</span>
-<span class="line-good">Cloudflare zone created. Scoped API token ready.</span>
-<span class="line-note">No registrar dashboard. No upsells. No tab switching.</span></pre>
+<pre><span class="line-label">you:</span> <span class="line-command">grab a .com for my notes app</span>
+<span class="line-label">ai:</span>  <span class="line-command">Checking names...</span>
+<span class="line-good">notesprint.com available - $14.09</span>
+<span class="line-command">Opening checkout.</span>
+<span class="line-good">Registered. Cloudflare DNS ready.</span>
+<span class="line-note">30 seconds. No tab switching.</span></pre>
                     </div>
                     <div class="stats">
-                        <div class="stat"><strong>Zero context switching</strong><span>Buy the domain from the same conversation where you're building the product.</span></div>
-                        <div class="stat"><strong>DNS ready immediately</strong><span>Registration and Cloudflare zone creation happen in the same purchase flow.</span></div>
-                        <div class="stat"><strong>No upsell hell</strong><span>Wholesale pricing, a small flat markup, and WHOIS privacy included.</span></div>
+                        <div class="stat"><strong>Stay in flow</strong><span>Buy domains from the same conversation.</span></div>
+                        <div class="stat"><strong>DNS included</strong><span>Cloudflare zone + API token, automatic.</span></div>
+                        <div class="stat"><strong>No upsells</strong><span>Wholesale + small markup. That's it.</span></div>
                     </div>
                 </div>
             </section>
+
             <section id="how">
                 <div class="section-head">
-                    <span class="pill">How it works</span>
-                    <h2>From "I need a domain" to "it's live" in one thread.</h2>
-                    <p>InstaDomain gives your coding assistant the full domain workflow, so the boring registrar steps disappear into the background while you keep building.</p>
+                    <h2>Three steps. One conversation.</h2>
                 </div>
                 <div class="grid-3">
-                    <article class="card"><div class="step-number">1</div><h3>Connect the MCP server once</h3><p>Point Claude, Cursor, or any MCP-compatible client at InstaDomain. That unlocks domain search, suggestions, checkout, and post-purchase status in the same interface you already use.</p></article>
-                    <article class="card"><div class="step-number">2</div><h3>Tell your AI what you need</h3><p>Ask for ideas, have it compare options, or name a specific domain. Your assistant handles the tedious part: availability checks, pricing, and choosing the next move without bouncing you into registrar UX.</p></article>
-                    <article class="card"><div class="step-number">3</div><h3>Your domain is live with DNS ready</h3><p>Stripe checkout completes the order, OpenSRS registers the domain, and Cloudflare creates the zone automatically with a scoped API token your agent can use right away.</p></article>
+                    <article class="card"><div class="step-number">1</div><h3>Connect the MCP server</h3><p>Point Claude, Cursor, or any MCP client at the URL. One-time setup.</p></article>
+                    <article class="card"><div class="step-number">2</div><h3>Ask your AI</h3><p>Check a name, compare options, or get suggestions. Your assistant handles it.</p></article>
+                    <article class="card"><div class="step-number">3</div><h3>Domain is live</h3><p>Stripe checkout, domain registration, Cloudflare DNS, scoped API token. All automatic.</p></article>
                 </div>
             </section>
+
             <section id="capabilities">
                 <div class="section-head">
-                    <span class="pill">What your AI can do</span>
-                    <h2>Give your assistant real domain-buying leverage.</h2>
-                    <p>These are not passive API endpoints sitting in docs. They are capabilities your assistant can actively use while helping you ship.</p>
+                    <h2>What your AI gets</h2>
                 </div>
                 <div class="grid-3">
-                    <article class="card capability"><small>check_domain</small><strong>Answer "can we get this?" instantly</strong><p>Your AI can check a single domain on demand and show exact pricing before you commit.</p></article>
-                    <article class="card capability"><small>check_domains_bulk</small><strong>Compare a whole short list in one pass</strong><p>Have it screen up to 50 options at once instead of checking names manually one by one.</p></article>
-                    <article class="card capability"><small>suggest_domains</small><strong>Brainstorm names that are actually available</strong><p>Give a keyword and your AI can generate ideas, check them, and surface the viable ones instead of hallucinating dead ends.</p></article>
-                    <article class="card capability"><small>buy_domain</small><strong>Turn a decision into a purchase</strong><p>Once you pick a name, your assistant can kick off Stripe checkout and finish the registration flow without sending you into registrar upsells.</p></article>
-                    <article class="card capability"><small>get_domain_status</small><strong>Confirm registration and DNS are ready</strong><p>Your AI can verify the domain was registered, report DNS status, and hand back the details you need after the order clears.</p></article>
-                    <article class="card capability"><small>After purchase</small><strong>WHOIS privacy and Cloudflare setup included</strong><p>Checkout flows into OpenSRS registration, then a Cloudflare zone is created automatically with a scoped API token for ongoing DNS management.</p></article>
+                    <article class="card capability"><small>check_domain</small><strong>Check availability + price</strong><p>One domain, instant answer with exact cost.</p></article>
+                    <article class="card capability"><small>check_domains_bulk</small><strong>Compare up to 50 at once</strong><p>Screen a whole list in a single call.</p></article>
+                    <article class="card capability"><small>suggest_domains</small><strong>Generate name ideas</strong><p>Keyword in, available domains out.</p></article>
+                    <article class="card capability"><small>buy_domain</small><strong>Purchase via Stripe</strong><p>Checkout link, user pays, domain registers.</p></article>
+                    <article class="card capability"><small>get_domain_status</small><strong>Track the order</strong><p>Polls until registered. Returns DNS details.</p></article>
+                    <article class="card capability"><small>included</small><strong>WHOIS privacy + Cloudflare</strong><p>Every purchase gets privacy and a ready DNS zone.</p></article>
                 </div>
             </section>
+
             <section id="pricing">
                 <div class="section-head">
-                    <span class="pill">Pricing</span>
-                    <h2>Transparent pricing, not registrar games.</h2>
-                    <p>InstaDomain charges wholesale cost plus a small flat markup. Exact pricing is shown before purchase. No hidden fees, no surprise bundles, no upsell maze.</p>
+                    <h2>Wholesale pricing. No games.</h2>
                 </div>
                 <div class="card">
                     <table class="pricing-table">
-                        <thead><tr><th>TLD</th><th>Typical price</th><th>What you get</th></tr></thead>
+                        <thead><tr><th>TLD</th><th>Typical price</th><th>Includes</th></tr></thead>
                         <tbody>
-                            <tr><td><strong>.com</strong></td><td>~$14</td><td>Registration, WHOIS privacy, automatic Cloudflare DNS setup</td></tr>
-                            <tr><td><strong>.dev</strong></td><td>~$19</td><td>Registration, WHOIS privacy, automatic Cloudflare DNS setup</td></tr>
-                            <tr><td><strong>.io</strong></td><td>~$45</td><td>Registration, WHOIS privacy, automatic Cloudflare DNS setup</td></tr>
+                            <tr><td><strong>.com</strong></td><td>~$14</td><td>Registration + WHOIS privacy + Cloudflare DNS</td></tr>
+                            <tr><td><strong>.dev</strong></td><td>~$19</td><td>Registration + WHOIS privacy + Cloudflare DNS</td></tr>
+                            <tr><td><strong>.io</strong></td><td>~$45</td><td>Registration + WHOIS privacy + Cloudflare DNS</td></tr>
                         </tbody>
                     </table>
-                    <p class="pricing-note">Exact price is always shown before you buy. Pricing varies by TLD and registry cost, but the rule stays simple: wholesale plus a small flat markup.</p>
+                    <p class="pricing-note">Exact price shown before purchase. Wholesale cost + small flat markup.</p>
                 </div>
             </section>
+
             <section id="api">
                 <div class="grid-2">
                     <div class="section-head">
-                        <span class="pill">REST API</span>
-                        <h2>Need direct integration instead of MCP?</h2>
-                        <p>There is also a free unauthenticated REST API for developers who want lightweight access without wiring up an MCP client.</p>
-                        <div class="actions"><a class="button-secondary" href="/docs">Open API docs</a></div>
+                        <h2>REST API</h2>
+                        <p>Free, no auth. For direct HTTP integration.</p>
+                        <div class="actions"><a class="button-secondary" href="/docs">API docs</a></div>
                     </div>
-                    <div class="card api-card">
-                        <span class="api-kicker">No auth required</span>
+                    <div class="card">
                         <div class="route-list">
-                            <div class="route"><strong>GET /check/{domain}</strong><br>Check one domain and get availability plus pricing.</div>
-                            <div class="route"><strong>POST /check</strong><br>Submit up to 50 domains in one request.</div>
-                            <div class="route"><strong>GET /suggest?keyword=X</strong><br>Generate and validate domain ideas for a keyword.</div>
+                            <div class="route"><strong>GET /check/{domain}</strong><br>Availability + pricing</div>
+                            <div class="route"><strong>POST /check</strong><br>Bulk check up to 50 domains</div>
+                            <div class="route"><strong>GET /suggest?keyword=X</strong><br>Generate and check name ideas</div>
                         </div>
                     </div>
                 </div>
             </section>
+
             <section id="connect">
                 <div class="section-head">
-                    <span class="pill">How to connect</span>
-                    <h2>Drop in one URL and let your AI handle the rest.</h2>
-                    <p>The server is available over Streamable HTTP transport. Connect it once, then buy domains from the same place you already prompt your assistant.</p>
+                    <h2>Connect in 30 seconds.</h2>
                 </div>
                 <div class="grid-2">
                     <div class="card connect">
@@ -317,16 +313,16 @@
                         </div>
                     </div>
                     <div class="card">
-                        <span class="price-kicker">What happens after checkout</span>
-                        <h3 style="margin-top: 0;">Stripe, OpenSRS, and Cloudflare are stitched into one flow.</h3>
-                        <p>When your AI starts a purchase, checkout runs through Stripe. After payment, InstaDomain registers the domain through OpenSRS, creates a Cloudflare DNS zone automatically, and returns a scoped API token for managing that zone. WHOIS privacy is included where the registry supports it.</p>
+                        <span class="price-kicker">After checkout</span>
+                        <h3 style="margin-top: 0;">Everything wires up automatically.</h3>
+                        <p>Stripe payment, OpenSRS registration, Cloudflare DNS zone, scoped API token. WHOIS privacy included.</p>
                     </div>
                 </div>
             </section>
         </main>
         <footer>
             <div class="footer-row">
-                <div>InstaDomain lets your AI buy the domain so you can keep building.</div>
+                <div>Your AI buys the domain. You keep building.</div>
                 <div class="footer-links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div>
             </div>
         </footer>
