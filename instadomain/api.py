@@ -178,6 +178,11 @@ def create_app() -> FastAPI:
     async def index():
         return (_STATIC_DIR / "index.html").read_text()
 
+    @app.get("/llms.txt")
+    async def llms_txt():
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse((_STATIC_DIR / "llms.txt").read_text())
+
     @app.get("/terms", response_class=HTMLResponse)
     async def terms():
         return (_STATIC_DIR / "terms.html").read_text()

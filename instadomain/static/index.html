@@ -5,6 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>InstaDomain</title>
     <meta name="description" content="Let your AI assistant buy domains without leaving your editor. Connect InstaDomain once and your agent can search, suggest, register, and manage DNS instantly.">
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="LLM-readable site summary">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "InstaDomain",
+        "description": "MCP server that gives AI coding assistants the ability to check availability, suggest names, and purchase domains on behalf of users. One connection provides the full domain lifecycle: search, bulk check, name suggestions, Stripe checkout, OpenSRS registration, and automatic Cloudflare DNS setup with scoped API tokens.",
+        "url": "https://instadomain.fly.dev",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any (MCP-compatible AI client)",
+        "offers": {
+            "@type": "Offer",
+            "description": "Wholesale domain pricing plus a small flat markup. .com from ~$14, .dev from ~$19, .io from ~$45. WHOIS privacy included.",
+            "priceCurrency": "USD"
+        },
+        "featureList": [
+            "check_domain: Check single domain availability with exact pricing",
+            "check_domains_bulk: Check up to 50 domains in one call",
+            "suggest_domains: Generate and check domain name ideas from a keyword",
+            "buy_domain: Purchase domains via Stripe checkout",
+            "get_domain_status: Track order through registration and DNS setup",
+            "Automatic Cloudflare DNS zone creation with scoped API token",
+            "WHOIS privacy included by default",
+            "Free REST API for direct HTTP integration"
+        ],
+        "softwareRequirements": "MCP-compatible AI client (Claude, Cursor, or any Streamable HTTP MCP client)",
+        "installUrl": "https://instadomain.fly.dev/mcp/"
+    }
+    </script>
     <style>
         :root {
             color-scheme: dark;

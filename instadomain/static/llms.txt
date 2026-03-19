@@ -1,0 +1,87 @@
+# InstaDomain
+
+> MCP server that gives AI assistants the ability to check, suggest, and purchase domain names on behalf of users.
+
+## Connect
+
+MCP server URL (Streamable HTTP transport):
+https://instadomain.fly.dev/mcp/
+
+Configuration for claude_desktop_config.json:
+```json
+{
+  "mcpServers": {
+    "instadomain": {
+      "type": "http",
+      "url": "https://instadomain.fly.dev/mcp/"
+    }
+  }
+}
+```
+
+No API key or authentication required to connect.
+
+## Tools
+
+### check_domain
+Check if a single domain is available and get its price.
+- Input: domain (string, e.g. "coolstartup.com")
+- Output: availability status, price in cents, formatted price (e.g. "$14.09")
+- Always call this before buy_domain to show the user the price.
+
+### check_domains_bulk
+Check availability of up to 50 domains in one call.
+- Input: domains (list of strings, max 50)
+- Output: per-domain availability, summary counts (total/available/taken)
+- Uses RDAP lookups. No pricing included.
+
+### suggest_domains
+Generate domain name ideas from a keyword and check availability.
+- Input: keyword (string, e.g. "taskflow")
+- Output: 10-15 candidates across .com, .io, .ai, .dev, .co with availability status
+- Uses prefix/suffix patterns (get-, my-, try-, -app, -hq, etc.)
+
+### buy_domain
+Start the purchase flow for an available domain.
+- Input: domain (string)
+- Output: order_id, checkout_url (Stripe), price_cents, price_display
+- IMPORTANT: Always show the user the price from check_domain and get explicit confirmation before calling this.
+- The checkout_url should be opened in the user's browser.
+
+### get_domain_status
+Poll the status of a domain purchase order.
+- Input: order_id (string, e.g. "ord_abc123")
+- Output: order status, domain, nameservers, Cloudflare DNS API token (when complete)
+- Polls automatically for up to 120 seconds until the order completes or fails.
+
+## What happens after purchase
+
+1. User completes Stripe checkout in their browser.
+2. InstaDomain registers the domain via OpenSRS.
+3. A Cloudflare DNS zone is created automatically.
+4. A scoped Cloudflare API token is generated for managing that zone.
+5. WHOIS privacy is enabled by default.
+6. get_domain_status returns nameservers and the DNS API token.
+
+## Pricing
+
+Wholesale registry cost plus a small flat markup. No hidden fees.
+
+| TLD  | Typical price |
+|------|---------------|
+| .com | ~$14          |
+| .dev | ~$19          |
+| .io  | ~$45          |
+
+Exact price is always returned by check_domain before purchase.
+
+## REST API (no auth required)
+
+For direct HTTP integration without MCP:
+
+- GET /check/{domain} - check one domain
+- POST /check (body: {"domains": [...]}) - bulk check up to 50
+- GET /suggest?keyword=X - generate and check domain ideas
+- GET /docs - OpenAPI documentation
+
+Base URL: https://instadomain.fly.dev
