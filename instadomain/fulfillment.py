@@ -9,7 +9,7 @@ Sequence:
 
 Compensating transactions:
 - OpenSRS registration fails -> auto-refund via Stripe, mark failed
-- Cloudflare zone fails after registration -> mark failed (domain registered, no refund)
+- Cloudflare zone/token fails after registration -> mark dns_pending and retry
 """
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
+from instadomain.emails import send_purchase_success_email, send_refund_email
 from instadomain.encryption import encrypt
 from instadomain.orders import get_order, update_order_status
 from instadomain.stripe_handler import issue_refund
@@ -25,6 +26,218 @@ logger = logging.getLogger(__name__)
 
 # Placeholder nameservers used for initial registration before CF zone exists
 _PLACEHOLDER_NS = ["ns1.instadomain.dev", "ns2.instadomain.dev"]
+_DNS_RETRY_DELAYS_SECONDS = (30, 120, 300)
+
+
+async def _increment_retry_count(pool, order_id: str) -> int:
+    async with pool.acquire() as conn:
+        retry_count = await conn.fetchval(
+            "UPDATE orders SET retry_count = retry_count + 1, updated_at = now() "
+            "WHERE id = $1 RETURNING retry_count",
+            order_id,
+        )
+    if retry_count is None:
+        raise ValueError(f"Order {order_id} not found")
+    return retry_count
+
+
+def _schedule_dns_retry(
+    *,
+    pool,
+    order_id: str,
+    opensrs,
+    cloudflare,
+    encryption_key: str,
+    retry_count: int,
+) -> None:
+    if retry_count > len(_DNS_RETRY_DELAYS_SECONDS):
+        logger.error("DNS retry limit reached for %s", order_id)
+        return
+
+    delay = _DNS_RETRY_DELAYS_SECONDS[retry_count - 1]
+    asyncio.create_task(
+        _retry_dns_setup_after_delay(
+            pool=pool,
+            order_id=order_id,
+            opensrs=opensrs,
+            cloudflare=cloudflare,
+            encryption_key=encryption_key,
+            delay_seconds=delay,
+        )
+    )
+
+
+async def _retry_dns_setup_after_delay(
+    *,
+    pool,
+    order_id: str,
+    opensrs,
+    cloudflare,
+    encryption_key: str,
+    delay_seconds: int,
+) -> None:
+    await asyncio.sleep(delay_seconds)
+    try:
+        await retry_dns_setup(
+            pool=pool,
+            order_id=order_id,
+            opensrs=opensrs,
+            cloudflare=cloudflare,
+            encryption_key=encryption_key,
+        )
+    except Exception as exc:
+        logger.error("Scheduled DNS retry failed for %s: %s", order_id, exc)
+
+
+async def _mark_dns_pending(
+    *,
+    pool,
+    order_id: str,
+    error_msg: str,
+    opensrs,
+    cloudflare,
+    encryption_key: str,
+    **fields,
+) -> dict:
+    retry_count = await _increment_retry_count(pool, order_id)
+    updated_order = await update_order_status(
+        pool,
+        order_id,
+        "dns_pending",
+        error_msg=error_msg,
+        **fields,
+    )
+    _schedule_dns_retry(
+        pool=pool,
+        order_id=order_id,
+        opensrs=opensrs,
+        cloudflare=cloudflare,
+        encryption_key=encryption_key,
+        retry_count=retry_count,
+    )
+    return updated_order
+
+
+async def _send_refund_email_if_possible(order: dict) -> None:
+    email = order.get("email")
+    if not email:
+        return
+    domain = f"{order['domain']}.{order['tld']}" if "." not in order["domain"] else order["domain"]
+    await send_refund_email(
+        to_email=email,
+        domain=domain,
+        amount_cents=order.get("amount_cents"),
+    )
+
+
+async def _complete_dns_setup(
+    *,
+    pool,
+    order: dict,
+    opensrs,
+    cloudflare,
+    encryption_key: str,
+) -> dict:
+    order_id = order["id"]
+    domain = f"{order['domain']}.{order['tld']}" if "." not in order["domain"] else order["domain"]
+
+    if order["status"] == "dns_pending":
+        order = await update_order_status(pool, order_id, "setting_dns", error_msg=None)
+
+    zone_id = order.get("cloudflare_zone_id")
+    nameservers = order.get("nameservers")
+
+    if not zone_id:
+        try:
+            zone_result = await cloudflare.create_zone(domain)
+            zone_id = zone_result["zone_id"]
+            nameservers = zone_result["nameservers"]
+        except Exception as exc:
+            logger.error("Cloudflare zone creation failed for %s: %s", domain, exc)
+            return await _mark_dns_pending(
+                pool=pool,
+                order_id=order_id,
+                error_msg=f"Cloudflare zone creation failed: {exc}",
+                opensrs=opensrs,
+                cloudflare=cloudflare,
+                encryption_key=encryption_key,
+            )
+
+        order = await update_order_status(
+            pool,
+            order_id,
+            "setting_dns",
+            cloudflare_zone_id=zone_id,
+            nameservers=nameservers,
+            error_msg=None,
+        )
+
+    # Non-fatal: nameservers may already be applied, but retrying is harmless.
+    if nameservers:
+        try:
+            await asyncio.to_thread(opensrs.update_nameservers, domain, nameservers)
+        except Exception as exc:
+            logger.warning(
+                "Nameserver update failed for %s (non-fatal): %s", domain, exc
+            )
+
+    try:
+        dns_token = await cloudflare.create_dns_token(zone_id, domain)
+    except Exception as exc:
+        logger.error("DNS token creation failed for %s: %s", domain, exc)
+        return await _mark_dns_pending(
+            pool=pool,
+            order_id=order_id,
+            error_msg=f"DNS token creation failed: {exc}",
+            opensrs=opensrs,
+            cloudflare=cloudflare,
+            encryption_key=encryption_key,
+            cloudflare_zone_id=zone_id,
+            nameservers=nameservers,
+        )
+
+    encrypted_token = encrypt(dns_token, encryption_key)
+    completed_order = await update_order_status(
+        pool,
+        order_id,
+        "complete",
+        cloudflare_zone_id=zone_id,
+        cloudflare_api_token=encrypted_token,
+        nameservers=nameservers,
+        error_msg=None,
+    )
+    await send_purchase_success_email(
+        to_email=completed_order.get("email"),
+        domain=domain,
+        dns_token=dns_token,
+        nameservers=nameservers or [],
+    )
+    return completed_order
+
+
+async def retry_dns_setup(
+    *,
+    pool,
+    order_id: str,
+    opensrs,
+    cloudflare,
+    encryption_key: str,
+) -> dict:
+    """Retry DNS setup for an order whose domain is already registered."""
+    order = await get_order(pool, order_id)
+    if order is None:
+        raise ValueError(f"Order {order_id} not found")
+    if order["status"] not in {"setting_dns", "dns_pending"}:
+        raise ValueError(
+            f"Order {order_id} is in status '{order['status']}', expected DNS retry state"
+        )
+    return await _complete_dns_setup(
+        pool=pool,
+        order=order,
+        opensrs=opensrs,
+        cloudflare=cloudflare,
+        encryption_key=encryption_key,
+    )
 
 
 async def fulfill_order(
@@ -77,6 +290,7 @@ async def fulfill_order(
             try:
                 await asyncio.to_thread(issue_refund, payment_intent)
                 logger.info("Refund issued for payment_intent=%s", payment_intent)
+                await _send_refund_email_if_possible(order)
             except Exception as refund_exc:
                 logger.error("Refund failed for %s: %s", payment_intent, refund_exc)
 
@@ -99,44 +313,10 @@ async def fulfill_order(
         opensrs_order_id=reg_result.get("order_id", ""),
         domain_expires_at=expiry_dt,
     )
-
-    try:
-        zone_result = await cloudflare.create_zone(domain)
-        zone_id = zone_result["zone_id"]
-        nameservers = zone_result["nameservers"]
-    except Exception as exc:
-        logger.error("Cloudflare zone creation failed for %s: %s", domain, exc)
-        # Domain is already registered, don't refund
-        return await update_order_status(
-            pool, order_id, "failed",
-            error_msg=f"Cloudflare zone creation failed: {exc}",
-        )
-
-    # Step 3: Update nameservers at OpenSRS to point to Cloudflare
-    # Non-fatal: domain works without this, CF will prompt user to update NS
-    try:
-        await asyncio.to_thread(opensrs.update_nameservers, domain, nameservers)
-    except Exception as exc:
-        logger.warning(
-            "Nameserver update failed for %s (non-fatal): %s", domain, exc
-        )
-
-    # Step 4: Create scoped DNS token at Cloudflare
-    try:
-        dns_token = await cloudflare.create_dns_token(zone_id, domain)
-    except Exception as exc:
-        logger.error("DNS token creation failed for %s: %s", domain, exc)
-        return await update_order_status(
-            pool, order_id, "failed",
-            error_msg=f"DNS token creation failed: {exc}",
-        )
-
-    # Step 5: Encrypt token and mark order complete
-    encrypted_token = encrypt(dns_token, encryption_key)
-
-    return await update_order_status(
-        pool, order_id, "complete",
-        cloudflare_zone_id=zone_id,
-        cloudflare_api_token=encrypted_token,
-        nameservers=nameservers,
+    return await _complete_dns_setup(
+        pool=pool,
+        order=await get_order(pool, order_id),
+        opensrs=opensrs,
+        cloudflare=cloudflare,
+        encryption_key=encryption_key,
     )
