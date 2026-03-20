@@ -40,6 +40,10 @@ from instadomain.mcp_server import mcp
 logger = logging.getLogger(__name__)
 
 _STATIC_DIR = Path(__file__).parent / "static"
+_CRYPTO_DISABLED_MESSAGE = (
+    "Crypto purchases are temporarily disabled while we build escrow protection. "
+    "Please use the standard purchase flow."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -338,7 +342,7 @@ def create_app() -> FastAPI:
     @app.get("/status/{order_id}")
     @app_limiter.limit("60/minute")
     async def get_order_status(order_id: str, request: Request):
-        """Get order status. Decrypts CF token on first retrieval."""
+        """Get order status. Decrypts and returns the Cloudflare token if present."""
         pool = request.app.state.pool
         encryption_key = request.app.state.encryption_key
 
@@ -357,28 +361,14 @@ def create_app() -> FastAPI:
             "error_msg": order.get("error_msg"),
         }
 
-        # If complete and token exists, attempt atomic first-retrieval
+        # Token retrieval is repeatable so customers can recover DNS access.
         if order["status"] == "complete" and order.get("cloudflare_api_token"):
-            if not order.get("cloudflare_token_retrieved"):
-                # Atomic: only succeeds if token hasn't been retrieved yet
-                async with pool.acquire() as conn:
-                    row = await conn.fetchrow(
-                        "UPDATE orders SET cloudflare_token_retrieved = TRUE "
-                        "WHERE id = $1 AND cloudflare_token_retrieved = FALSE "
-                        "RETURNING cloudflare_api_token",
-                        order["id"],
-                    )
-                if row:
-                    try:
-                        token = decrypt(row["cloudflare_api_token"], encryption_key)
-                        response["cloudflare_token"] = token
-                        response["nameservers"] = order.get("nameservers")
-                    except Exception as exc:
-                        logger.error("Token decryption failed for %s: %s", order_id, exc)
-                else:
-                    response["cloudflare_token"] = "already_retrieved"
-            else:
-                response["cloudflare_token"] = "already_retrieved"
+            try:
+                token = decrypt(order["cloudflare_api_token"], encryption_key)
+                response["cloudflare_token"] = token
+                response["nameservers"] = order.get("nameservers")
+            except Exception as exc:
+                logger.error("Token decryption failed for %s: %s", order_id, exc)
 
         return response
 
@@ -450,6 +440,16 @@ def create_app() -> FastAPI:
     @app_limiter.limit("5/minute")
     async def buy_domain_crypto(body: BuyRequest, request: Request):
         """Create an x402 order. Returns a pay_url the agent hits to pay via HTTP 402."""
+        crypto_disabled = True
+        if crypto_disabled:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": _CRYPTO_DISABLED_MESSAGE,
+                    "message": _CRYPTO_DISABLED_MESSAGE,
+                },
+            )
+
         if not request.app.state.x402_enabled:
             raise HTTPException(status_code=503, detail="Crypto payments not configured")
 
@@ -501,15 +501,22 @@ def create_app() -> FastAPI:
         pool = request.app.state.pool
         rs = request.app.state.x402_resource_server
 
+        existing = await get_order(pool, order_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+        if existing.get("payment_method") != "x402":
+            raise HTTPException(status_code=400, detail="Not an x402 order")
+        if existing["status"] != "pending_payment":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Order {order_id} is in status '{existing['status']}' and cannot be paid again"
+                ),
+            )
+
         # Look up the pending order
         order = await get_pending_x402_order(pool, order_id)
         if order is None:
-            # Check if it exists at all
-            existing = await get_order(pool, order_id)
-            if existing is None:
-                raise HTTPException(status_code=404, detail="Order not found")
-            if existing.get("payment_method") != "x402":
-                raise HTTPException(status_code=400, detail="Not an x402 order")
             raise HTTPException(status_code=409, detail="Order already paid or expired")
 
         # Build payment requirements for this order's exact price

@@ -24,6 +24,10 @@ BACKEND_URL = os.environ.get("INSTADOMAIN_BACKEND_URL", "https://instadomain.fly
 POLL_INTERVAL_SECONDS = 3
 POLL_TIMEOUT_SECONDS = 120
 BULK_LIMIT = 50
+CRYPTO_DISABLED_MESSAGE = (
+    "Crypto purchases are temporarily disabled while we build escrow protection. "
+    "Please use the standard purchase flow."
+)
 
 # ---------------------------------------------------------------------------
 # MCP server
@@ -110,9 +114,15 @@ async def buy_domain_crypto(domain: str) -> dict:
         Dict with order_id, pay_url (full URL to GET with x402 client),
         price_usdc, price_cents, network, and asset contract address.
     """
+    return {
+        "error": CRYPTO_DISABLED_MESSAGE,
+        "message": CRYPTO_DISABLED_MESSAGE,
+        "domain": domain,
+    }
+
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
         resp = await client.post("/buy/crypto", json={"domain": domain})
-        if resp.status_code == 400:
+        if resp.status_code in {400, 503}:
             return resp.json()
         resp.raise_for_status()
         data = resp.json()
