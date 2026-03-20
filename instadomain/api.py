@@ -153,8 +153,9 @@ def create_app() -> FastAPI:
         # x402 crypto payments: only enabled when wallet address is configured
         app.state.x402_enabled = False
         if settings.x402_wallet_address:
-            from x402 import FacilitatorClient, x402ResourceServer
-            facilitator = FacilitatorClient(url=settings.x402_facilitator_url)
+            from x402.http import HTTPFacilitatorClient, FacilitatorConfig
+            from x402 import x402ResourceServer
+            facilitator = HTTPFacilitatorClient(FacilitatorConfig(url=settings.x402_facilitator_url))
             resource_server = x402ResourceServer(facilitator_clients=[facilitator])
             resource_server.initialize()
             app.state.x402_resource_server = resource_server
