@@ -72,6 +72,42 @@ async def send_purchase_success_email(
     )
 
 
+ALERT_EMAIL = os.environ.get("ALERT_EMAIL", "nach@nachdakwale.com")
+
+
+async def send_crypto_refund_alert(
+    *,
+    order_id: str,
+    domain: str,
+    amount_usdc: str,
+    payer_address: str | None,
+    tx_hash: str | None,
+    error_msg: str,
+) -> None:
+    """Send an alert when domain registration fails after an x402 crypto payment.
+
+    This requires manual intervention to refund the payer on-chain.
+    """
+    payer_info = payer_address or tx_hash or "unknown"
+    body = (
+        f"CRYPTO REFUND REQUIRED\n\n"
+        f"Domain registration failed after on-chain payment.\n\n"
+        f"Order ID: {order_id}\n"
+        f"Domain: {domain}\n"
+        f"Amount: {amount_usdc} USDC\n"
+        f"Payer address: {payer_address or 'not captured'}\n"
+        f"Transaction hash: {tx_hash or 'not captured'}\n"
+        f"Error: {error_msg}\n\n"
+        f"Action required: manually refund {amount_usdc} USDC to {payer_info}."
+    )
+    await asyncio.to_thread(
+        _send_email_sync,
+        to_email=ALERT_EMAIL,
+        subject=f"[ALERT] Crypto refund needed: {domain} (order {order_id})",
+        body=body,
+    )
+
+
 async def send_refund_email(
     *,
     to_email: str | None,
