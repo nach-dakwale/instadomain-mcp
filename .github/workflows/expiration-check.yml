@@ -1,0 +1,20 @@
+name: Expiration Check
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call expiration reminder endpoint
+        env:
+          INSTADOMAIN_ADMIN_KEY: ${{ secrets.INSTADOMAIN_ADMIN_KEY }}
+        run: |
+          response=$(curl --silent --show-error --fail \
+            -X POST \
+            -H "x-api-key: ${INSTADOMAIN_ADMIN_KEY}" \
+            https://instadomain.fly.dev/admin/send-expiration-reminders)
+          echo "$response"

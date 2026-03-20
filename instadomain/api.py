@@ -41,7 +41,11 @@ from instadomain.stripe_handler import (
     verify_webhook,
     process_webhook_event,
 )
-from instadomain.emails import ALERT_EMAIL, send_renewal_failure_alert
+from instadomain.emails import (
+    ALERT_EMAIL,
+    send_expiration_reminder_email,
+    send_renewal_failure_alert,
+)
 from instadomain.affiliate import add_affiliate_links
 from instadomain.mcp_server import mcp
 
@@ -660,6 +664,47 @@ def create_app() -> FastAPI:
             })
 
         return {"count": len(results), "orders": results}
+
+    @app.post("/admin/send-expiration-reminders")
+    async def send_expiration_reminders(
+        request: Request,
+        days: int = Query(default=90, ge=1, le=365),
+        x_api_key: str | None = Header(default=None),
+    ):
+        """Send expiration reminder emails for orders expiring within the given days."""
+        admin_key = os.environ.get("INSTADOMAIN_ADMIN_KEY", "")
+        if not admin_key or x_api_key != admin_key:
+            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+        pool = request.app.state.pool
+        orders = await get_expiring_orders(pool, days)
+        settings = Settings()
+
+        sent = 0
+        errors: list[dict[str, str]] = []
+
+        for order in orders:
+            domain = f"{order['domain']}.{order['tld']}"
+            expires_at = order.get("domain_expires_at")
+            days_remaining = None
+            if expires_at:
+                delta = expires_at - datetime.now(timezone.utc)
+                days_remaining = max(0, delta.days)
+
+            try:
+                await send_expiration_reminder_email(
+                    to_email=order.get("email"),
+                    domain=domain,
+                    expires_at=expires_at.isoformat() if expires_at else "unknown",
+                    days_remaining=days_remaining or 0,
+                    renewal_url=f"{settings.backend_url}/renew/{order['id']}",
+                )
+                sent += 1
+            except Exception as exc:
+                logger.exception("Failed to send expiration reminder for %s", order["id"])
+                errors.append({"order_id": order["id"], "domain": domain, "error": str(exc)})
+
+        return {"count": sent, "errors": errors}
 
     # ------------------------------------------------------------------
     # x402 crypto payment endpoints
