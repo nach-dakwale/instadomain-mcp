@@ -158,7 +158,7 @@ def create_app() -> FastAPI:
             from x402.mechanisms.evm.exact import ExactEvmServerScheme
             facilitator = HTTPFacilitatorClient(FacilitatorConfig(url=settings.x402_facilitator_url))
             resource_server = x402ResourceServer(facilitator_clients=[facilitator])
-            resource_server.register("eip155:84532", ExactEvmServerScheme())
+            resource_server.register(settings.x402_network, ExactEvmServerScheme())
             resource_server.initialize()
             app.state.x402_resource_server = resource_server
             app.state.x402_wallet = settings.x402_wallet_address
