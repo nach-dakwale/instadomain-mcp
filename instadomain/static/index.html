@@ -36,535 +36,456 @@
     }
     </script>
     <style>
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 0.8; }
-        }
-        @keyframes scanline {
-            0% { transform: translateY(-100%); }
-            100% { transform: translateY(100vh); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes pulse { 0%,100% { box-shadow: 0 0 6px rgba(0,255,160,0.3); } 50% { box-shadow: 0 0 14px rgba(0,255,160,0.6); } }
+        @keyframes typeIn {
+            from { width: 0; } to { width: 100%; }
         }
 
         :root {
-            color-scheme: dark;
-            --bg: #07070b;
-            --surface: #0e0e15;
-            --raised: #141420;
-            --border: rgba(255, 255, 255, 0.05);
-            --border-mid: rgba(255, 255, 255, 0.09);
-            --border-strong: rgba(255, 255, 255, 0.13);
-            --text: #e2e2ea;
-            --text-2: #8e8e9f;
-            --text-3: #55556a;
-            --green: #00e09a;
-            --green-bg: rgba(0, 224, 154, 0.06);
-            --green-border: rgba(0, 224, 154, 0.18);
-            --amber: #e8b930;
-            --blue: #5b9cf5;
-            --max: 1060px;
-            --serif: Didot, "Bodoni MT", "Noto Serif Display", Georgia, serif;
-            --mono: "Berkeley Mono", "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
-            --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --bg: #0a0a0a;
+            --s1: #111111;
+            --s2: #181818;
+            --s3: #222222;
+            --b1: #1a1a1a;
+            --b2: #2a2a2a;
+            --b3: #3a3a3a;
+            --t1: #d4d4d4;
+            --t2: #888888;
+            --t3: #555555;
+            --g: #00ff9f;
+            --gd: rgba(0,255,159,0.08);
+            --gb: rgba(0,255,159,0.15);
+            --a: #ffcc00;
+            --bl: #6699ff;
+            --r: #ff4444;
+            --mono: "SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono", "Consolas", "Liberation Mono", monospace;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
         body {
-            min-height: 100vh; font-family: var(--sans);
-            background: var(--bg); color: var(--text);
-            line-height: 1.6; -webkit-font-smoothing: antialiased;
-            overflow-x: hidden;
+            min-height: 100vh;
+            font-family: var(--mono);
+            background: var(--bg);
+            color: var(--t1);
+            font-size: 13px;
+            line-height: 1.65;
+            -webkit-font-smoothing: antialiased;
         }
-        a { color: inherit; text-decoration: none; transition: color 0.15s; }
-        .w { width: min(calc(100% - 48px), var(--max)); margin: 0 auto; }
+        ::selection { background: var(--gb); color: var(--g); }
+        a { color: var(--t2); text-decoration: none; transition: color 0.1s; }
+        a:hover { color: var(--t1); }
+        code { font-family: inherit; }
 
-        /* Scanline ambient effect */
-        body::after {
-            content: ""; position: fixed; top: 0; left: 0; right: 0;
-            height: 2px; background: linear-gradient(90deg, transparent, rgba(0,224,154,0.03), transparent);
-            animation: scanline 8s linear infinite; pointer-events: none; z-index: 100;
-        }
+        .w { max-width: 960px; margin: 0 auto; padding: 0 24px; }
 
         /* ===== NAV ===== */
-        nav { display: flex; justify-content: space-between; align-items: center; padding: 22px 0; }
+        .nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 20px 0; border-bottom: 1px solid var(--b1);
+        }
         .logo {
-            display: inline-flex; align-items: center; gap: 10px;
-            font-family: var(--mono); font-size: 0.82rem; font-weight: 600;
-            letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-2);
+            display: flex; align-items: center; gap: 8px;
+            color: var(--t2); font-size: 12px; letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
         .logo-dot {
-            width: 7px; height: 7px; border-radius: 50%;
-            background: var(--green); box-shadow: 0 0 10px rgba(0,224,154,0.5);
-            animation: pulse 3s ease-in-out infinite;
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--g); animation: pulse 2.5s ease-in-out infinite;
         }
         .nav-r {
-            display: flex; gap: 28px; font-family: var(--mono);
-            font-size: 0.7rem; letter-spacing: 0.08em;
-            text-transform: uppercase; color: var(--text-3);
+            display: flex; gap: 24px;
+            font-size: 11px; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--t3);
         }
-        .nav-r a:hover { color: var(--text-2); }
+        .nav-r a:hover { color: var(--g); }
 
         /* ===== HERO ===== */
-        .hero {
-            position: relative; padding: 80px 0 0; text-align: center;
+        .hero { padding: 64px 0 56px; }
+        .hero-pre {
+            color: var(--t3); font-size: 11px;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            margin-bottom: 16px;
         }
-        .hero::before {
-            content: ""; position: absolute;
-            top: -100px; left: 50%; transform: translateX(-50%);
-            width: 900px; height: 700px;
-            background: radial-gradient(ellipse at center,
-                rgba(0,224,154,0.05) 0%, rgba(0,224,154,0.015) 35%, transparent 65%);
-            pointer-events: none;
-        }
-        .hero > * { position: relative; z-index: 1; }
+        .hero-pre span { color: var(--g); }
         .hero h1 {
-            font-family: var(--serif); font-weight: 400;
-            font-size: clamp(2.8rem, 6.5vw, 4.8rem);
-            line-height: 1.08; letter-spacing: -0.03em;
-            max-width: 15ch; margin: 0 auto 24px;
-            animation: fadeUp 0.6s ease both 0.1s; opacity: 0;
+            font-size: clamp(28px, 4.5vw, 44px);
+            font-weight: 600; line-height: 1.2;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+            animation: fadeIn 0.5s ease both;
         }
-        .hero-sub {
-            max-width: 52ch; margin: 0 auto 40px;
-            color: var(--text-2); font-size: 1.05rem; line-height: 1.65;
-            animation: fadeUp 0.6s ease both 0.2s; opacity: 0;
+        .hero h1 .hl { color: var(--g); }
+        .hero-desc {
+            color: var(--t2); font-size: 13px; line-height: 1.7;
+            max-width: 60ch; margin-bottom: 36px;
         }
 
-        /* ===== ENDPOINT BLOCK (the star of the show) ===== */
-        .endpoint {
-            max-width: 680px; margin: 0 auto 0;
-            animation: fadeUp 0.7s ease both 0.3s; opacity: 0;
-        }
-        .endpoint-card {
-            border: 1px solid var(--green-border);
-            border-radius: 12px;
-            background: linear-gradient(165deg, rgba(0,224,154,0.04) 0%, var(--surface) 40%);
+        /* ===== ENDPOINT ===== */
+        .ep {
+            border: 1px solid var(--gb);
+            border-radius: 4px;
+            background: var(--gd);
             overflow: hidden;
+            margin-bottom: 40px;
         }
-        .endpoint-header {
+        .ep-bar {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 14px 20px;
-            border-bottom: 1px solid var(--border-mid);
-            background: rgba(0,224,154,0.02);
+            padding: 8px 14px;
+            background: rgba(0,255,159,0.04);
+            border-bottom: 1px solid rgba(0,255,159,0.1);
+            font-size: 10px; letter-spacing: 0.1em;
+            text-transform: uppercase;
         }
-        .endpoint-protocol {
-            display: flex; align-items: center; gap: 8px;
-            font-family: var(--mono); font-size: 0.68rem;
-            letter-spacing: 0.08em; text-transform: uppercase; color: var(--green);
+        .ep-status { color: var(--g); display: flex; align-items: center; gap: 6px; }
+        .ep-status i {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: var(--g); display: inline-block;
         }
-        .endpoint-protocol .dot {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: var(--green);
+        .ep-meta { color: var(--t3); display: flex; gap: 16px; }
+        .ep-url-row {
+            display: flex; align-items: stretch;
         }
-        .endpoint-meta {
-            display: flex; gap: 16px;
-            font-family: var(--mono); font-size: 0.65rem;
-            color: var(--text-3); letter-spacing: 0.04em;
-        }
-        .endpoint-meta span { display: flex; align-items: center; gap: 5px; }
-        .endpoint-url-row {
-            display: flex; gap: 0; align-items: stretch;
-            padding: 4px;
-        }
-        .endpoint-url {
-            flex: 1; padding: 16px 20px;
-            font-family: var(--mono); font-size: 0.92rem; font-weight: 500;
-            color: var(--text); letter-spacing: 0.01em;
+        .ep-url {
+            flex: 1; padding: 14px 16px;
+            font-size: 14px; font-weight: 500; color: var(--t1);
             display: flex; align-items: center;
-            background: transparent; border: none;
+            background: transparent;
         }
-        .endpoint-copy {
-            padding: 0 24px; border-radius: 8px; margin: 0;
-            background: var(--green); border: none;
-            color: var(--bg); font-family: var(--mono);
-            font-size: 0.72rem; font-weight: 700;
+        .ep-copy {
+            padding: 0 20px;
+            background: var(--g); border: none; color: var(--bg);
+            font-family: var(--mono); font-size: 11px; font-weight: 700;
             letter-spacing: 0.06em; text-transform: uppercase;
-            cursor: pointer; transition: all 0.15s;
+            cursor: pointer; transition: all 0.1s;
         }
-        .endpoint-copy:hover {
-            background: #00f0a6;
-            box-shadow: 0 0 24px rgba(0,224,154,0.25);
+        .ep-copy:hover { background: #33ffb5; }
+        .ep-expand {
+            border-top: 1px solid rgba(0,255,159,0.08);
+            padding: 12px 16px;
         }
-        .endpoint-config {
-            border-top: 1px solid var(--border);
-            padding: 16px 20px;
+        .ep-expand summary {
+            font-size: 10px; color: var(--t3); letter-spacing: 0.08em;
+            text-transform: uppercase; cursor: pointer; list-style: none;
         }
-        .endpoint-config summary {
-            font-family: var(--mono); font-size: 0.65rem;
-            color: var(--text-3); letter-spacing: 0.08em;
-            text-transform: uppercase; cursor: pointer;
-            list-style: none; display: flex; align-items: center; gap: 6px;
+        .ep-expand summary::before { content: "> "; color: var(--g); }
+        .ep-expand[open] summary::before { content: "v "; }
+        .ep-expand pre {
+            margin-top: 10px; padding: 14px; border-radius: 3px;
+            background: var(--bg); border: 1px solid var(--b1);
+            font-size: 12px; line-height: 1.6;
+            white-space: pre-wrap;
         }
-        .endpoint-config summary::before {
-            content: "\25B6"; font-size: 0.5rem; transition: transform 0.2s;
+        .ep-expand .k { color: var(--bl); }
+        .ep-expand .s { color: var(--g); }
+
+        /* ===== TERMINAL DEMO ===== */
+        .term {
+            border: 1px solid var(--b2);
+            border-radius: 4px;
+            background: var(--s1);
+            overflow: hidden;
+            margin-bottom: 0;
         }
-        .endpoint-config[open] summary::before { transform: rotate(90deg); }
-        .endpoint-config pre {
-            margin: 14px 0 0; padding: 16px; border-radius: 8px;
-            background: var(--bg); border: 1px solid var(--border);
-            font-family: var(--mono); font-size: 0.78rem; line-height: 1.7;
-            white-space: pre-wrap; overflow-x: auto;
+        .term-bar {
+            display: flex; gap: 6px; padding: 10px 14px;
+            background: var(--s2); border-bottom: 1px solid var(--b1);
+        }
+        .term-bar i {
+            width: 10px; height: 10px; border-radius: 50%;
+        }
+        .term-bar i:nth-child(1) { background: #ff5f56; }
+        .term-bar i:nth-child(2) { background: #ffbd2e; }
+        .term-bar i:nth-child(3) { background: #27c93f; }
+        .term-code {
+            padding: 16px 18px;
+            font-size: 12px; line-height: 1.9;
+        }
+        .tp { color: var(--t3); }
+        .tc { color: var(--t1); }
+        .tg { color: var(--g); }
+        .ta { color: var(--a); }
+        .cur {
+            display: inline-block; width: 7px; height: 14px;
+            background: var(--g); vertical-align: text-bottom;
+            animation: blink 1s step-end infinite;
         }
 
-        /* ===== DEMO ===== */
-        .demo {
-            max-width: 580px; margin: 48px auto 0;
-            animation: fadeUp 0.7s ease both 0.45s; opacity: 0;
+        /* ===== SECTIONS ===== */
+        .sep { height: 1px; border: none; background: var(--b1); margin: 0; }
+        section { padding: 56px 0; }
+        .sh {
+            font-size: 10px; letter-spacing: 0.14em;
+            text-transform: uppercase; color: var(--t3);
+            margin-bottom: 6px;
+            display: flex; align-items: center; gap: 8px;
         }
-        .demo-frame {
-            border-radius: 10px; overflow: hidden;
-            border: 1px solid var(--border-mid);
-            background: var(--surface);
-        }
-        .demo-bar {
-            display: flex; gap: 5px; padding: 12px 16px;
-            border-bottom: 1px solid var(--border);
-        }
-        .demo-bar i { width: 9px; height: 9px; border-radius: 50%; }
-        .demo-bar i:nth-child(1) { background: #ff5f57; }
-        .demo-bar i:nth-child(2) { background: #febc2e; }
-        .demo-bar i:nth-child(3) { background: #28c840; }
-        .demo-code {
-            padding: 18px 20px;
-            font-family: var(--mono); font-size: 0.8rem; line-height: 1.85;
-        }
-        .d-p { color: var(--text-3); }
-        .d-c { color: var(--text); }
-        .d-g { color: var(--green); }
-        .d-a { color: var(--amber); }
-        .d-cur {
-            display: inline-block; width: 7px; height: 13px;
-            background: var(--green); vertical-align: text-bottom;
-            animation: blink 1.1s step-end infinite;
+        .sh::before { content: "#"; color: var(--g); }
+        .st {
+            font-size: clamp(18px, 2.5vw, 24px);
+            font-weight: 600; letter-spacing: -0.01em;
+            margin-bottom: 32px;
         }
 
-        /* ===== SECTION SYSTEM ===== */
-        .sep {
-            height: 1px; border: none;
-            background: linear-gradient(90deg, transparent, var(--border-mid) 15%, var(--border-mid) 85%, transparent);
-            margin: 0;
-        }
-        section { padding: 72px 0; }
-        .sec-label {
-            font-family: var(--mono); font-size: 0.6rem;
-            letter-spacing: 0.14em; text-transform: uppercase;
-            color: var(--text-3); margin-bottom: 10px;
-        }
-        .sec-title {
-            font-family: var(--serif); font-size: clamp(1.6rem, 3vw, 2.2rem);
-            font-weight: 400; letter-spacing: -0.02em; line-height: 1.15;
-        }
-        .sec-head { margin-bottom: 40px; }
-
-        /* ===== TOOLS (capability manifest) ===== */
-        .tools { display: grid; gap: 1px; background: var(--border); border-radius: 12px; overflow: hidden; }
+        /* ===== TOOLS ===== */
+        .tools { border: 1px solid var(--b1); border-radius: 4px; overflow: hidden; }
         .tool {
-            display: grid; grid-template-columns: 200px 1fr;
-            background: var(--surface); transition: background 0.2s;
+            display: grid; grid-template-columns: 180px 1fr;
+            border-bottom: 1px solid var(--b1);
+            transition: background 0.15s;
         }
-        .tool:hover { background: var(--raised); }
-        .tool-name {
-            padding: 24px; border-right: 1px solid var(--border);
+        .tool:last-child { border-bottom: none; }
+        .tool:hover { background: var(--s1); }
+        .tool-l {
+            padding: 18px 16px; border-right: 1px solid var(--b1);
             display: flex; flex-direction: column; justify-content: center;
         }
-        .tool-name code {
-            font-family: var(--mono); font-size: 0.82rem; font-weight: 600;
-            color: var(--green); display: block; margin-bottom: 6px;
+        .tool-l code {
+            font-size: 13px; font-weight: 600; color: var(--g);
+            display: block; margin-bottom: 3px;
         }
-        .tool-name .tool-type {
-            font-family: var(--mono); font-size: 0.6rem;
-            color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase;
+        .tool-l .tt {
+            font-size: 10px; color: var(--t3);
+            letter-spacing: 0.06em; text-transform: uppercase;
         }
-        .tool-body { padding: 24px; }
-        .tool-body p { font-size: 0.88rem; color: var(--text-2); margin-bottom: 10px; }
-        .tool-io {
-            display: flex; gap: 24px; flex-wrap: wrap;
-            font-family: var(--mono); font-size: 0.72rem; color: var(--text-3);
+        .tool-r { padding: 18px 20px; }
+        .tool-r p { color: var(--t2); font-size: 12px; margin-bottom: 8px; }
+        .tool-sig {
+            font-size: 11px; color: var(--t3);
+            display: flex; gap: 20px; flex-wrap: wrap;
         }
-        .tool-io span { display: flex; align-items: baseline; gap: 6px; }
-        .tool-io .io-label {
-            font-size: 0.58rem; letter-spacing: 0.1em;
-            text-transform: uppercase; color: var(--text-3);
-            opacity: 0.6;
+        .tool-sig span { display: flex; gap: 5px; }
+        .tool-sig .lbl { color: var(--t3); opacity: 0.5; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+        /* ===== CHAIN ===== */
+        .chain {
+            display: flex; font-size: 12px;
+            border: 1px solid var(--b1); border-radius: 4px;
+            overflow: hidden;
+        }
+        .ch {
+            flex: 1; padding: 20px 16px;
+            border-right: 1px solid var(--b1);
+            position: relative;
+        }
+        .ch:last-child { border-right: none; }
+        .ch-n {
+            font-size: 10px; color: var(--g);
+            letter-spacing: 0.06em; margin-bottom: 8px; display: block;
+        }
+        .ch strong { display: block; font-size: 12px; margin-bottom: 2px; }
+        .ch span { color: var(--t3); font-size: 11px; }
+        .ch-arrow {
+            position: absolute; right: -4px; top: 50%;
+            transform: translateY(-50%); z-index: 1;
+            color: var(--t3); font-size: 10px;
+            background: var(--bg); width: 8px; text-align: center;
         }
 
         /* ===== PRICING ===== */
-        .pricing-split {
+        .pricing {
             display: grid; grid-template-columns: 1fr 1fr;
-            gap: 2px; border-radius: 12px; overflow: hidden; background: var(--border);
+            border: 1px solid var(--b1); border-radius: 4px;
+            overflow: hidden;
         }
-        .pricing-left, .pricing-right {
-            padding: 36px 32px; background: var(--surface);
+        .pr-l, .pr-r { padding: 28px 24px; }
+        .pr-l { border-right: 1px solid var(--b1); }
+        .pr-row {
+            display: flex; justify-content: space-between;
+            padding: 10px 0; border-bottom: 1px solid var(--b1);
+            font-size: 13px;
         }
-        .price-row {
-            display: flex; justify-content: space-between; align-items: baseline;
-            padding: 14px 0; border-bottom: 1px solid var(--border);
+        .pr-row:last-of-type { border-bottom: none; }
+        .pr-tld { font-weight: 600; }
+        .pr-amt { color: var(--g); font-weight: 600; }
+        .pr-inc {
+            margin-top: 16px; padding-top: 14px;
+            border-top: 1px solid var(--b2);
+            list-style: none;
         }
-        .price-row:last-child { border-bottom: none; }
-        .price-tld {
-            font-family: var(--mono); font-weight: 600;
-            font-size: 0.9rem; letter-spacing: 0.02em;
+        .pr-inc li {
+            padding: 3px 0; color: var(--t2); font-size: 11px;
         }
-        .price-amt {
-            font-family: var(--mono); font-weight: 600;
-            font-size: 0.9rem; color: var(--green);
+        .pr-inc li::before {
+            content: "+ "; color: var(--g); font-weight: 700;
         }
-        .price-inc {
-            margin-top: 20px; padding-top: 16px;
-            border-top: 1px solid var(--border-mid);
-        }
-        .price-inc li {
-            list-style: none; display: flex; align-items: center; gap: 8px;
-            color: var(--text-2); font-size: 0.82rem; padding: 5px 0;
-        }
-        .price-inc li::before {
-            content: "+"; color: var(--green); font-family: var(--mono);
-            font-size: 0.75rem; font-weight: 700;
-        }
-        .pricing-right {
+        .pr-r {
             display: flex; flex-direction: column; justify-content: center;
         }
-        .pricing-right p {
-            color: var(--text-2); font-size: 0.9rem; line-height: 1.6;
-        }
-        .pricing-right p + p { margin-top: 16px; color: var(--text-3); font-size: 0.82rem; }
+        .pr-r p { color: var(--t2); font-size: 12px; line-height: 1.65; }
+        .pr-r p + p { margin-top: 12px; color: var(--t3); }
+        .pr-r code { color: var(--g); }
 
         /* ===== API ===== */
-        .api-grid {
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 40px; align-items: start;
+        .api { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+        .routes { display: grid; gap: 4px; }
+        .rt {
+            display: flex; align-items: baseline; gap: 10px;
+            padding: 12px 14px; border-radius: 3px;
+            background: var(--s1); border: 1px solid var(--b1);
+            transition: border-color 0.15s;
         }
-        .routes { display: grid; gap: 6px; }
-        .route {
-            display: flex; align-items: baseline; gap: 12px;
-            padding: 14px 16px; border-radius: 8px;
-            background: var(--surface); border: 1px solid var(--border);
-            transition: border-color 0.2s;
+        .rt:hover { border-color: var(--b2); }
+        .rt-m {
+            font-size: 10px; font-weight: 700; color: var(--bl);
+            letter-spacing: 0.04em; min-width: 32px;
         }
-        .route:hover { border-color: var(--border-strong); }
-        .route-m {
-            font-family: var(--mono); font-size: 0.68rem; font-weight: 700;
-            color: var(--blue); letter-spacing: 0.04em;
-            flex-shrink: 0; min-width: 36px;
+        .rt-p { font-size: 12px; color: var(--t1); }
+        .rt-d { font-size: 11px; color: var(--t3); margin-left: auto; }
+        .api-link {
+            display: inline-block; margin-top: 20px;
+            font-size: 11px; color: var(--t3); letter-spacing: 0.06em;
+            text-transform: uppercase;
+            border-bottom: 1px dotted var(--b3); padding-bottom: 1px;
         }
-        .route-p {
-            font-family: var(--mono); font-size: 0.78rem; color: var(--text);
-        }
-        .route-d { font-size: 0.78rem; color: var(--text-3); margin-left: auto; white-space: nowrap; }
-
-        /* ===== POST-PURCHASE ===== */
-        .chain {
-            display: flex; gap: 0; align-items: stretch;
-            border-radius: 12px; overflow: hidden;
-            border: 1px solid var(--border-mid);
-        }
-        .chain-step {
-            flex: 1; padding: 24px 20px;
-            background: var(--surface);
-            border-right: 1px solid var(--border);
-            position: relative;
-        }
-        .chain-step:last-child { border-right: none; }
-        .chain-step::after {
-            content: "\2192"; position: absolute; right: -7px; top: 50%;
-            transform: translateY(-50%); color: var(--text-3);
-            font-size: 0.75rem; z-index: 1;
-            width: 14px; height: 14px; display: grid; place-items: center;
-            background: var(--bg); border-radius: 50%;
-        }
-        .chain-step:last-child::after { display: none; }
-        .chain-num {
-            font-family: var(--mono); font-size: 0.58rem;
-            color: var(--green); letter-spacing: 0.08em;
-            margin-bottom: 10px; display: block;
-        }
-        .chain-step strong {
-            display: block; font-size: 0.82rem; font-weight: 600;
-            margin-bottom: 4px;
-        }
-        .chain-step span {
-            font-size: 0.75rem; color: var(--text-3); line-height: 1.4;
-        }
+        .api-link:hover { color: var(--g); border-color: var(--g); }
 
         /* ===== FOOTER ===== */
-        footer { padding: 24px 0 44px; }
-        .foot {
+        footer { padding: 20px 0 40px; }
+        .ft {
             display: flex; justify-content: space-between; align-items: center;
-            padding-top: 20px; border-top: 1px solid var(--border);
-            font-family: var(--mono); font-size: 0.65rem;
-            color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase;
+            padding-top: 16px; border-top: 1px solid var(--b1);
+            font-size: 10px; color: var(--t3);
+            letter-spacing: 0.06em; text-transform: uppercase;
         }
-        .foot-links { display: flex; gap: 20px; }
-        .foot-links a:hover { color: var(--text-2); }
+        .ft-links { display: flex; gap: 16px; }
+        .ft-links a:hover { color: var(--g); }
 
         /* ===== RESPONSIVE ===== */
-        @media (max-width: 860px) {
+        @media (max-width: 768px) {
             .tool { grid-template-columns: 1fr; }
-            .tool-name { border-right: none; border-bottom: 1px solid var(--border); padding: 16px 24px; }
-            .pricing-split, .api-grid { grid-template-columns: 1fr; }
+            .tool-l { border-right: none; border-bottom: 1px solid var(--b1); padding: 14px 16px; }
+            .pricing, .api { grid-template-columns: 1fr; }
+            .pr-l { border-right: none; border-bottom: 1px solid var(--b1); }
             .chain { flex-direction: column; }
-            .chain-step { border-right: none; border-bottom: 1px solid var(--border); }
-            .chain-step::after { display: none; }
+            .ch { border-right: none; border-bottom: 1px solid var(--b1); }
+            .ch:last-child { border-bottom: none; }
+            .ch-arrow { display: none; }
         }
-        @media (max-width: 580px) {
-            .w { width: min(calc(100% - 28px), var(--max)); }
+        @media (max-width: 520px) {
+            body { font-size: 12px; }
             .nav-r { display: none; }
-            .hero { padding-top: 52px; }
-            .endpoint-url-row { flex-direction: column; }
-            .endpoint-copy { padding: 14px; text-align: center; }
-            .endpoint-meta { flex-direction: column; gap: 4px; }
-            .foot { flex-direction: column; gap: 10px; text-align: center; }
+            .hero { padding: 40px 0 36px; }
+            .hero h1 { font-size: 24px; }
+            .ep-url-row { flex-direction: column; }
+            .ep-copy { padding: 12px; text-align: center; }
+            .ft { flex-direction: column; gap: 8px; }
         }
     </style>
 </head>
 <body>
     <div class="w">
-        <nav>
-            <a class="logo" href="#"><span class="logo-dot"></span>InstaDomain</a>
+        <header class="nav">
+            <a class="logo" href="#"><span class="logo-dot"></span> instadomain</a>
             <div class="nav-r">
-                <a href="#tools">Tools</a>
-                <a href="#pricing">Pricing</a>
-                <a href="#api">API</a>
-                <a href="/docs">Docs</a>
+                <a href="#tools">tools</a>
+                <a href="#pricing">pricing</a>
+                <a href="#api">api</a>
+                <a href="/docs">docs</a>
             </div>
-        </nav>
+        </header>
 
         <main>
-            <!-- HERO: Human headline + agent connection, unified -->
             <section class="hero">
-                <h1>Your AI buys the domain. You keep building.</h1>
-                <p class="hero-sub">
-                    An MCP server for domain registration. Connect your AI assistant once.
+                <div class="hero-pre"><span>$</span> mcp_server <span>--</span>protocol=domains</div>
+                <h1>Your AI <span class="hl">buys the domain.</span><br>You keep building.</h1>
+                <p class="hero-desc">
+                    MCP server for domain registration. Connect your AI assistant once.
                     It checks availability, suggests names, handles Stripe checkout,
                     and sets up Cloudflare DNS. You never leave your editor.
                 </p>
 
-                <!-- THE ENDPOINT: front and center, not buried -->
-                <div class="endpoint" role="region" aria-label="MCP connection endpoint">
-                    <div class="endpoint-card">
-                        <div class="endpoint-header">
-                            <div class="endpoint-protocol">
-                                <span class="dot"></span>
-                                MCP Endpoint &middot; Live
-                            </div>
-                            <div class="endpoint-meta">
-                                <span>Streamable HTTP</span>
-                                <span>No auth</span>
-                            </div>
+                <div class="ep" role="region" aria-label="MCP endpoint">
+                    <div class="ep-bar">
+                        <div class="ep-status"><i></i> mcp endpoint // live</div>
+                        <div class="ep-meta">
+                            <span>transport: streamable_http</span>
+                            <span>auth: none</span>
                         </div>
-                        <div class="endpoint-url-row">
-                            <div class="endpoint-url"><code id="mcp-url">https://instadomain.fly.dev/mcp/</code></div>
-                            <button class="endpoint-copy" id="copy-btn" type="button" aria-live="polite">Copy URL</button>
-                        </div>
-                        <details class="endpoint-config">
-                            <summary>Client configuration</summary>
+                    </div>
+                    <div class="ep-url-row">
+                        <div class="ep-url"><code id="mcp-url">https://instadomain.fly.dev/mcp/</code></div>
+                        <button class="ep-copy" id="copy-btn" type="button" aria-live="polite">copy</button>
+                    </div>
+                    <details class="ep-expand">
+                        <summary>client config</summary>
 <pre>{
-  "mcpServers": {
-    "instadomain": {
-      "type": "http",
-      "url": "https://instadomain.fly.dev/mcp/"
+  <span class="k">"mcpServers"</span>: {
+    <span class="k">"instadomain"</span>: {
+      <span class="k">"type"</span>: <span class="s">"http"</span>,
+      <span class="k">"url"</span>: <span class="s">"https://instadomain.fly.dev/mcp/"</span>
     }
   }
 }</pre>
-                        </details>
-                    </div>
+                    </details>
                 </div>
 
-                <!-- DEMO: what the conversation looks like -->
-                <div class="demo">
-                    <div class="demo-frame">
-                        <div class="demo-bar"><i></i><i></i><i></i></div>
-                        <div class="demo-code">
-<span class="d-p">you:</span> <span class="d-c">grab a .com for my notes app</span>
-<span class="d-p">ai:</span>  <span class="d-c">Checking names...</span>
-<span class="d-g">     notesprint.com available &mdash; $14.09</span>
-<span class="d-c">     Opening checkout.</span>
-<span class="d-g">     Registered. Cloudflare DNS ready.</span>
-<span class="d-a">     30 seconds. No tab switching.</span><span class="d-cur"></span>
-                        </div>
-                    </div>
+                <div class="term">
+                    <div class="term-bar"><i></i><i></i><i></i></div>
+                    <div class="term-code"><span class="tp">you:</span> <span class="tc">grab a .com for my notes app</span>
+<span class="tp"> ai:</span> <span class="tc">Checking names...</span>
+<span class="tg">     notesprint.com available - $14.09</span>
+<span class="tc">     Opening checkout.</span>
+<span class="tg">     Registered. Cloudflare DNS ready.</span>
+<span class="ta">     30 seconds. No tab switching.</span><span class="cur"></span></div>
                 </div>
             </section>
 
             <hr class="sep">
 
-            <!-- TOOLS: structured as a capability manifest, not marketing cards -->
             <section id="tools">
-                <div class="sec-head">
-                    <div class="sec-label">Available tools</div>
-                    <h2 class="sec-title">Capability manifest</h2>
-                </div>
+                <div class="sh">available tools</div>
+                <h2 class="st">Capability manifest</h2>
                 <div class="tools" role="list" aria-label="MCP tools">
                     <div class="tool" role="listitem">
-                        <div class="tool-name">
-                            <code>check_domain</code>
-                            <span class="tool-type">Read</span>
-                        </div>
-                        <div class="tool-body">
+                        <div class="tool-l"><code>check_domain</code><span class="tt">read</span></div>
+                        <div class="tool-r">
                             <p>Check if a single domain is available and get its exact price.</p>
-                            <div class="tool-io">
-                                <span><span class="io-label">In</span> domain: string</span>
-                                <span><span class="io-label">Out</span> available, price_cents, price_display</span>
+                            <div class="tool-sig">
+                                <span><span class="lbl">in</span> domain: string</span>
+                                <span><span class="lbl">out</span> available, price_cents, price_display</span>
                             </div>
                         </div>
                     </div>
                     <div class="tool" role="listitem">
-                        <div class="tool-name">
-                            <code>check_domains_bulk</code>
-                            <span class="tool-type">Read</span>
-                        </div>
-                        <div class="tool-body">
+                        <div class="tool-l"><code>check_domains_bulk</code><span class="tt">read</span></div>
+                        <div class="tool-r">
                             <p>Check availability of up to 50 domains in one call via RDAP.</p>
-                            <div class="tool-io">
-                                <span><span class="io-label">In</span> domains: string[] (max 50)</span>
-                                <span><span class="io-label">Out</span> per-domain status, summary counts</span>
+                            <div class="tool-sig">
+                                <span><span class="lbl">in</span> domains: string[] (max 50)</span>
+                                <span><span class="lbl">out</span> per-domain status, summary counts</span>
                             </div>
                         </div>
                     </div>
                     <div class="tool" role="listitem">
-                        <div class="tool-name">
-                            <code>suggest_domains</code>
-                            <span class="tool-type">Read</span>
-                        </div>
-                        <div class="tool-body">
+                        <div class="tool-l"><code>suggest_domains</code><span class="tt">read</span></div>
+                        <div class="tool-r">
                             <p>Generate domain name ideas from a keyword and check availability.</p>
-                            <div class="tool-io">
-                                <span><span class="io-label">In</span> keyword: string</span>
-                                <span><span class="io-label">Out</span> 10-15 candidates across .com, .io, .dev, .co, .ai</span>
+                            <div class="tool-sig">
+                                <span><span class="lbl">in</span> keyword: string</span>
+                                <span><span class="lbl">out</span> 10-15 candidates across .com .io .dev .co .ai</span>
                             </div>
                         </div>
                     </div>
                     <div class="tool" role="listitem">
-                        <div class="tool-name">
-                            <code>buy_domain</code>
-                            <span class="tool-type">Write</span>
-                        </div>
-                        <div class="tool-body">
-                            <p>Start purchase flow. Returns a Stripe checkout URL for the user to complete payment.</p>
-                            <div class="tool-io">
-                                <span><span class="io-label">In</span> domain: string</span>
-                                <span><span class="io-label">Out</span> order_id, checkout_url, price_cents</span>
+                        <div class="tool-l"><code>buy_domain</code><span class="tt">write</span></div>
+                        <div class="tool-r">
+                            <p>Start purchase flow. Returns a Stripe checkout URL for the user.</p>
+                            <div class="tool-sig">
+                                <span><span class="lbl">in</span> domain: string</span>
+                                <span><span class="lbl">out</span> order_id, checkout_url, price_cents</span>
                             </div>
                         </div>
                     </div>
                     <div class="tool" role="listitem">
-                        <div class="tool-name">
-                            <code>get_domain_status</code>
-                            <span class="tool-type">Read</span>
-                        </div>
-                        <div class="tool-body">
+                        <div class="tool-l"><code>get_domain_status</code><span class="tt">read</span></div>
+                        <div class="tool-r">
                             <p>Poll order status until registration and DNS setup complete.</p>
-                            <div class="tool-io">
-                                <span><span class="io-label">In</span> order_id: string</span>
-                                <span><span class="io-label">Out</span> status, nameservers, cloudflare_api_token</span>
+                            <div class="tool-sig">
+                                <span><span class="lbl">in</span> order_id: string</span>
+                                <span><span class="lbl">out</span> status, nameservers, cloudflare_api_token</span>
                             </div>
                         </div>
                     </div>
@@ -573,43 +494,37 @@
 
             <hr class="sep">
 
-            <!-- AFTER PURCHASE: the automated chain -->
             <section>
-                <div class="sec-head">
-                    <div class="sec-label">After checkout</div>
-                    <h2 class="sec-title">Everything wires up automatically.</h2>
-                </div>
+                <div class="sh">post-purchase</div>
+                <h2 class="st">Everything wires up automatically.</h2>
                 <div class="chain">
-                    <div class="chain-step"><span class="chain-num">01</span><strong>Stripe payment</strong><span>User completes checkout</span></div>
-                    <div class="chain-step"><span class="chain-num">02</span><strong>OpenSRS registration</strong><span>Domain registered instantly</span></div>
-                    <div class="chain-step"><span class="chain-num">03</span><strong>Cloudflare DNS</strong><span>Zone created, nameservers set</span></div>
-                    <div class="chain-step"><span class="chain-num">04</span><strong>API token</strong><span>Scoped token returned to agent</span></div>
-                    <div class="chain-step"><span class="chain-num">05</span><strong>WHOIS privacy</strong><span>Enabled by default</span></div>
+                    <div class="ch"><span class="ch-n">01</span><strong>Stripe</strong><span>User completes checkout</span><span class="ch-arrow">&gt;</span></div>
+                    <div class="ch"><span class="ch-n">02</span><strong>OpenSRS</strong><span>Domain registered</span><span class="ch-arrow">&gt;</span></div>
+                    <div class="ch"><span class="ch-n">03</span><strong>Cloudflare</strong><span>DNS zone created</span><span class="ch-arrow">&gt;</span></div>
+                    <div class="ch"><span class="ch-n">04</span><strong>API token</strong><span>Scoped token returned</span><span class="ch-arrow">&gt;</span></div>
+                    <div class="ch"><span class="ch-n">05</span><strong>WHOIS</strong><span>Privacy enabled</span></div>
                 </div>
             </section>
 
             <hr class="sep">
 
-            <!-- PRICING -->
             <section id="pricing">
-                <div class="sec-head">
-                    <div class="sec-label">Pricing</div>
-                    <h2 class="sec-title">Wholesale. No games.</h2>
-                </div>
-                <div class="pricing-split">
-                    <div class="pricing-left">
-                        <div class="price-row"><span class="price-tld">.com</span><span class="price-amt">~$14</span></div>
-                        <div class="price-row"><span class="price-tld">.dev</span><span class="price-amt">~$19</span></div>
-                        <div class="price-row"><span class="price-tld">.io</span><span class="price-amt">~$45</span></div>
-                        <ul class="price-inc">
+                <div class="sh">pricing</div>
+                <h2 class="st">Wholesale. No games.</h2>
+                <div class="pricing">
+                    <div class="pr-l">
+                        <div class="pr-row"><span class="pr-tld">.com</span><span class="pr-amt">~$14</span></div>
+                        <div class="pr-row"><span class="pr-tld">.dev</span><span class="pr-amt">~$19</span></div>
+                        <div class="pr-row"><span class="pr-tld">.io</span><span class="pr-amt">~$45</span></div>
+                        <ul class="pr-inc">
                             <li>Domain registration (1 year)</li>
                             <li>WHOIS privacy</li>
                             <li>Cloudflare DNS zone</li>
                             <li>Scoped API token</li>
                         </ul>
                     </div>
-                    <div class="pricing-right">
-                        <p>Wholesale registry cost plus a small flat markup. Exact price is always returned by <code style="font-family:var(--mono);color:var(--green);font-size:0.85em">check_domain</code> before purchase.</p>
+                    <div class="pr-r">
+                        <p>Wholesale registry cost + small flat markup. Exact price always returned by <code>check_domain</code> before purchase.</p>
                         <p>No hidden fees. No upsells. No renewal traps.</p>
                     </div>
                 </div>
@@ -617,51 +532,45 @@
 
             <hr class="sep">
 
-            <!-- REST API -->
             <section id="api">
-                <div class="api-grid">
+                <div class="api">
                     <div>
-                        <div class="sec-head">
-                            <div class="sec-label">REST API</div>
-                            <h2 class="sec-title">Free. No auth.</h2>
-                            <p style="margin-top:10px;color:var(--text-2);font-size:0.9rem;">
-                                For direct HTTP integration without MCP.
-                            </p>
-                        </div>
-                        <a href="/docs" style="font-family:var(--mono);font-size:0.75rem;color:var(--text-3);letter-spacing:0.06em;text-transform:uppercase;border-bottom:1px solid var(--border-strong);padding-bottom:2px;">
-                            OpenAPI docs &rarr;
-                        </a>
+                        <div class="sh">rest api</div>
+                        <h2 class="st">Free. No auth.</h2>
+                        <p style="color:var(--t2);font-size:12px;margin-bottom:16px;">
+                            For direct HTTP integration without MCP.
+                        </p>
+                        <a href="/docs" class="api-link">openapi docs &rarr;</a>
                     </div>
                     <div class="routes">
-                        <div class="route">
-                            <span class="route-m">GET</span>
-                            <span class="route-p">/check/{domain}</span>
-                            <span class="route-d">availability + pricing</span>
+                        <div class="rt">
+                            <span class="rt-m">GET</span>
+                            <span class="rt-p">/check/{domain}</span>
+                            <span class="rt-d">availability + pricing</span>
                         </div>
-                        <div class="route">
-                            <span class="route-m">POST</span>
-                            <span class="route-p">/check</span>
-                            <span class="route-d">bulk check (max 50)</span>
+                        <div class="rt">
+                            <span class="rt-m">POST</span>
+                            <span class="rt-p">/check</span>
+                            <span class="rt-d">bulk check (max 50)</span>
                         </div>
-                        <div class="route">
-                            <span class="route-m">GET</span>
-                            <span class="route-p">/suggest?keyword=X</span>
-                            <span class="route-d">generate + check ideas</span>
+                        <div class="rt">
+                            <span class="rt-m">GET</span>
+                            <span class="rt-p">/suggest?keyword=X</span>
+                            <span class="rt-d">generate + check ideas</span>
                         </div>
                     </div>
                 </div>
             </section>
-
         </main>
 
         <footer>
-            <div class="foot">
+            <div class="ft">
                 <span>instadomain.fly.dev</span>
-                <div class="foot-links">
+                <div class="ft-links">
                     <a href="/llms.txt">llms.txt</a>
                     <a href="/.well-known/mcp.json">mcp.json</a>
-                    <a href="/terms">Terms</a>
-                    <a href="/privacy">Privacy</a>
+                    <a href="/terms">terms</a>
+                    <a href="/privacy">privacy</a>
                 </div>
             </div>
         </footer>
@@ -675,7 +584,7 @@
         btn.addEventListener("click", function () {
             navigator.clipboard.writeText(url.textContent || "").then(function () {
                 var orig = btn.textContent;
-                btn.textContent = "Copied";
+                btn.textContent = "copied";
                 setTimeout(function () { btn.textContent = orig; }, 1600);
             });
         });
