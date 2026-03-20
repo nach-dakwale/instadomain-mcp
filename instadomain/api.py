@@ -29,6 +29,7 @@ from instadomain.orders import (
     get_order,
     get_order_by_stripe_session,
     get_pending_x402_order,
+    get_stuck_dns_orders,
     update_domain_expiry,
     update_order_status,
     update_x402_settlement,
@@ -36,9 +37,11 @@ from instadomain.orders import (
 from instadomain.pricing import calculate_retail_cents, format_price
 from instadomain.stripe_handler import (
     create_checkout_session,
+    issue_refund,
     verify_webhook,
     process_webhook_event,
 )
+from instadomain.emails import ALERT_EMAIL, send_renewal_failure_alert
 from instadomain.affiliate import add_affiliate_links
 from instadomain.mcp_server import mcp
 
@@ -134,6 +137,26 @@ class RegistrantContact(BaseModel):
     country: str  # 2-letter ISO code
     phone: str  # format: +1.5551234567
 
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        if not re.match(r"^\+\d{1,3}\.\d{4,14}$", v):
+            raise ValueError(
+                "Phone must be in EPP format: +CC.NNNNnnnnnn "
+                "(e.g. +1.5551234567). Country code 1-3 digits, "
+                "then a dot, then 4-14 digits."
+            )
+        return v
+
+    @field_validator("country")
+    @classmethod
+    def validate_country(cls, v: str) -> str:
+        if not re.match(r"^[A-Z]{2}$", v):
+            raise ValueError(
+                "Country must be a 2-letter uppercase ISO code (e.g. US, CA, GB)"
+            )
+        return v
+
 
 class BuyRequest(BaseModel):
     domain: str
@@ -184,6 +207,22 @@ def create_app() -> FastAPI:
             app.state.x402_network = settings.x402_network
             app.state.x402_enabled = True
             logger.info("x402 crypto payments enabled (wallet=%s)", settings.x402_wallet_address[:10] + "...")
+
+        # Recover orders stuck in dns_pending/setting_dns from before restart
+        from instadomain.fulfillment import retry_dns_setup
+        stuck_orders = await get_stuck_dns_orders(app.state.pool)
+        if stuck_orders:
+            logger.info("Recovering %d stuck DNS orders on startup", len(stuck_orders))
+        for stuck_order in stuck_orders:
+            asyncio.create_task(
+                retry_dns_setup(
+                    pool=app.state.pool,
+                    order_id=stuck_order["id"],
+                    opensrs=app.state.opensrs,
+                    cloudflare=app.state.cloudflare,
+                    encryption_key=app.state.encryption_key,
+                )
+            )
 
         async with mcp_http_app.lifespan(mcp_http_app):
             yield
@@ -414,6 +453,15 @@ def create_app() -> FastAPI:
         order = await get_order_by_stripe_session(pool, session_id)
         if order is None:
             logger.warning("Webhook: no order found for session %s", session_id)
+            # If the event is recent, return 500 so Stripe retries (race
+            # condition with order creation). After 5 minutes, give up.
+            event_created = event.get("created", 0)
+            event_age_seconds = datetime.now(timezone.utc).timestamp() - event_created
+            if event_age_seconds < 300:
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": "Order not found yet, retrying"},
+                )
             return {"received": True}
 
         # Handle renewal payments: order is already "complete"
