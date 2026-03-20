@@ -98,7 +98,7 @@ async def send_expiration_reminder_email(
     )
 
 
-ALERT_EMAIL = os.environ.get("ALERT_EMAIL", "nach@nachdakwale.com")
+ALERT_EMAIL = os.environ.get("ALERT_EMAIL", "")
 
 
 async def send_crypto_refund_alert(
