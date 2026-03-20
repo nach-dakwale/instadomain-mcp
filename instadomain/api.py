@@ -40,10 +40,6 @@ from instadomain.mcp_server import mcp
 logger = logging.getLogger(__name__)
 
 _STATIC_DIR = Path(__file__).parent / "static"
-_CRYPTO_DISABLED_MESSAGE = (
-    "Crypto purchases are temporarily disabled while we build escrow protection. "
-    "Please use the standard purchase flow."
-)
 
 
 # ---------------------------------------------------------------------------
@@ -440,16 +436,6 @@ def create_app() -> FastAPI:
     @app_limiter.limit("5/minute")
     async def buy_domain_crypto(body: BuyRequest, request: Request):
         """Create an x402 order. Returns a pay_url the agent hits to pay via HTTP 402."""
-        crypto_disabled = True
-        if crypto_disabled:
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "error": _CRYPTO_DISABLED_MESSAGE,
-                    "message": _CRYPTO_DISABLED_MESSAGE,
-                },
-            )
-
         if not request.app.state.x402_enabled:
             raise HTTPException(status_code=503, detail="Crypto payments not configured")
 
@@ -461,6 +447,36 @@ def create_app() -> FastAPI:
 
         pool = request.app.state.pool
         opensrs = request.app.state.opensrs
+
+        # Pre-validation: verify availability directly with the registrar
+        # before creating an order. Crypto payments are irreversible, so we
+        # need high confidence the domain can actually be registered.
+        try:
+            registrar_available = await asyncio.to_thread(
+                opensrs.check_availability, domain
+            )
+        except Exception as exc:
+            logger.warning("OpenSRS availability check failed for %s: %s", domain, exc)
+            raise HTTPException(
+                status_code=502,
+                detail=f"Could not verify domain availability with registrar: {exc}",
+            )
+
+        if not registrar_available:
+            logger.info(
+                "Pre-validation failed: %s shows available via RDAP but unavailable at registrar",
+                domain,
+            )
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Domain {domain} appeared available but the registrar reports it "
+                    "is not. This can happen with recently expired or reserved domains. "
+                    "No payment was created."
+                ),
+            )
+        logger.info("Pre-validation passed for %s: registrar confirms available", domain)
+
         try:
             wholesale_cents = await _get_price(domain, opensrs)
         except Exception as exc:
@@ -568,7 +584,12 @@ def create_app() -> FastAPI:
         # Settle the payment on-chain
         settle_result = rs.settle_payment(payload, matched)
         if settle_result.success and settle_result.transaction:
-            await update_x402_settlement(pool, order_id, settle_result.transaction)
+            await update_x402_settlement(
+                pool,
+                order_id,
+                settle_result.transaction,
+                payer_address=getattr(settle_result, "payer", None),
+            )
 
         # Kick off fulfillment (same path as Stripe webhook)
         asyncio.create_task(
