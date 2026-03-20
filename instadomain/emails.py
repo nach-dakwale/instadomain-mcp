@@ -84,8 +84,7 @@ async def send_expiration_reminder_email(
     body = (
         f"Your domain {domain} expires on {expires_at} "
         f"({days_remaining} days from now).\n\n"
-        "Auto-renewal is enabled, but if your payment method is outdated "
-        "or you need to renew manually, use this link:\n\n"
+        "To renew your domain, use this link:\n\n"
         f"{renewal_url}\n\n"
         "If the domain expires and is not renewed, it may become available "
         "for anyone to register. Please make sure your payment details "
@@ -131,6 +130,34 @@ async def send_crypto_refund_alert(
         _send_email_sync,
         to_email=ALERT_EMAIL,
         subject=f"[ALERT] Crypto refund needed: {domain} (order {order_id})",
+        body=body,
+    )
+
+
+async def send_renewal_failure_alert(
+    *,
+    order_id: str,
+    domain: str,
+    error_msg: str,
+) -> None:
+    """Send an alert when a paid domain renewal fails at the registrar.
+
+    A Stripe refund should already have been attempted by the caller.
+    This notifies the operator so they can investigate and intervene.
+    """
+    body = (
+        f"RENEWAL FAILURE\n\n"
+        f"A customer paid for a domain renewal but the OpenSRS renewal call failed.\n\n"
+        f"Order ID: {order_id}\n"
+        f"Domain: {domain}\n"
+        f"Error: {error_msg}\n\n"
+        f"A refund was attempted automatically. Please verify the refund "
+        f"succeeded in the Stripe dashboard and investigate the renewal failure."
+    )
+    await asyncio.to_thread(
+        _send_email_sync,
+        to_email=ALERT_EMAIL,
+        subject=f"[ALERT] Renewal failed: {domain} (order {order_id})",
         body=body,
     )
 

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS orders (
     status                  TEXT NOT NULL DEFAULT 'pending_payment',
     error_msg               TEXT,
     retry_count             INTEGER NOT NULL DEFAULT 0,
+    renewal_stripe_session_id TEXT,
     domain_expires_at       TIMESTAMPTZ,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at            TIMESTAMPTZ,
@@ -76,6 +77,18 @@ BEGIN
 END $$;
 """
 
+MIGRATION_RENEWAL_SESSION = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'orders' AND column_name = 'renewal_stripe_session_id'
+    ) THEN
+        ALTER TABLE orders ADD COLUMN renewal_stripe_session_id TEXT;
+    END IF;
+END $$;
+"""
+
 
 async def init_pool(database_url: str) -> asyncpg.Pool:
     """Create the connection pool and run the schema migration."""
@@ -86,6 +99,7 @@ async def init_pool(database_url: str) -> asyncpg.Pool:
         await conn.execute(MIGRATION_X402)
         await conn.execute(MIGRATION_X402_PAYER)
         await conn.execute(MIGRATION_REGISTRANT_CONTACT)
+        await conn.execute(MIGRATION_RENEWAL_SESSION)
     return _pool
 
 

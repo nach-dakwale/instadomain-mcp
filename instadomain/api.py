@@ -467,11 +467,45 @@ def create_app() -> FastAPI:
         # Handle renewal payments: order is already "complete"
         if order["status"] == "complete":
             logger.info("Webhook: processing renewal for order %s", order["id"])
+
+            # Idempotency: only process if this session_id matches the
+            # current renewal_stripe_session_id. If it was already cleared,
+            # this is a duplicate webhook delivery.
+            if order.get("renewal_stripe_session_id") != session_id:
+                logger.info(
+                    "Webhook: renewal session %s does not match stored %s, skipping (duplicate)",
+                    session_id, order.get("renewal_stripe_session_id"),
+                )
+                return {"received": True, "order_id": order["id"], "renewal": True, "duplicate": True}
+
             domain = f"{order['domain']}.{order['tld']}"
             opensrs = request.app.state.opensrs
+
+            # Determine the current expiration year for OpenSRS
+            expires_at = order.get("domain_expires_at")
+            if expires_at is None:
+                logger.error(
+                    "Renewal failed for %s: domain_expires_at is NULL, cannot determine current expiry year",
+                    domain,
+                )
+                # Refund the customer and alert the operator
+                if payment_intent:
+                    try:
+                        await asyncio.to_thread(issue_refund, payment_intent)
+                        logger.info("Refund issued for renewal payment_intent %s", payment_intent)
+                    except Exception as refund_exc:
+                        logger.error("Refund also failed for %s: %s", payment_intent, refund_exc)
+                asyncio.create_task(send_renewal_failure_alert(
+                    order_id=order["id"], domain=domain,
+                    error_msg="domain_expires_at is NULL, could not determine currentexpirationyear",
+                ))
+                return {"received": True, "order_id": order["id"], "renewal": True, "error": "missing expiry"}
+
+            current_expiry_year = expires_at.year
+
             try:
                 renew_result = await asyncio.to_thread(
-                    opensrs.renew_domain, domain, 1
+                    opensrs.renew_domain, domain, current_expiry_year, 1
                 )
                 expiry_str = renew_result.get("expiry")
                 if expiry_str:
@@ -482,9 +516,27 @@ def create_app() -> FastAPI:
                         await update_domain_expiry(pool, order["id"], expiry_dt)
                     except (ValueError, TypeError):
                         logger.warning("Could not parse renewal expiry: %s", expiry_str)
+
+                # Clear renewal_stripe_session_id so duplicate webhooks are
+                # rejected by the idempotency check above.
+                async with pool.acquire() as conn:
+                    await conn.execute(
+                        "UPDATE orders SET renewal_stripe_session_id = NULL, updated_at = now() WHERE id = $1",
+                        order["id"],
+                    )
                 logger.info("Renewal successful for %s", domain)
             except Exception as exc:
                 logger.error("Renewal failed for %s: %s", domain, exc)
+                # Refund the customer since the renewal did not go through
+                if payment_intent:
+                    try:
+                        await asyncio.to_thread(issue_refund, payment_intent)
+                        logger.info("Refund issued for failed renewal, payment_intent %s", payment_intent)
+                    except Exception as refund_exc:
+                        logger.error("Refund also failed for %s: %s", payment_intent, refund_exc)
+                asyncio.create_task(send_renewal_failure_alert(
+                    order_id=order["id"], domain=domain, error_msg=str(exc),
+                ))
             return {"received": True, "order_id": order["id"], "renewal": True}
 
         # Idempotency: skip if already past pending_payment
@@ -554,10 +606,11 @@ def create_app() -> FastAPI:
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Payment setup failed: {exc}")
 
-        # Store the renewal session ID so the webhook can process it
+        # Store in renewal_stripe_session_id so we don't overwrite the
+        # original stripe_session_id (which would break pending webhooks).
         async with pool.acquire() as conn:
             await conn.execute(
-                "UPDATE orders SET stripe_session_id = $1, updated_at = now() WHERE id = $2",
+                "UPDATE orders SET renewal_stripe_session_id = $1, updated_at = now() WHERE id = $2",
                 checkout["session_id"],
                 order_id,
             )
