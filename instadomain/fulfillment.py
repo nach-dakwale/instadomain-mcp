@@ -273,6 +273,12 @@ async def fulfill_order(
     email = order.get("email") or "privacy@instadomain.dev"
     payment_intent = order.get("stripe_payment_intent")
 
+    # Parse registrant contact from order (stored as JSONB)
+    registrant_contact = order.get("registrant_contact")
+    if isinstance(registrant_contact, str):
+        import json as _json
+        registrant_contact = _json.loads(registrant_contact)
+
     # Step 1: Register domain at OpenSRS with placeholder nameservers
     # OpenSRS client is sync -- run in thread to avoid blocking the event loop
     try:
@@ -282,6 +288,7 @@ async def fulfill_order(
             years=order.get("registration_years", 1),
             registrant_email=email,
             nameservers=_PLACEHOLDER_NS,
+            registrant_contact=registrant_contact,
         )
     except Exception as exc:
         logger.error("OpenSRS registration failed for %s: %s", domain, exc)
