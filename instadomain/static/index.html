@@ -35,211 +35,491 @@
     }
     </script>
     <style>
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.7; }
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+
         :root {
             color-scheme: dark;
-            --bg: #111113;
-            --surface: #19191d;
-            --surface-raised: #222228;
-            --line: rgba(255, 255, 255, 0.08);
-            --line-strong: rgba(255, 255, 255, 0.14);
-            --text: #ececf0;
-            --text-secondary: #8b8b97;
-            --accent: #34d399;
-            --accent-dim: rgba(52, 211, 153, 0.12);
-            --amber: #fbbf24;
-            --radius: 12px;
-            --max: 1100px;
+            --bg: #07070b;
+            --surface: #0f0f16;
+            --surface-raised: #16161f;
+            --surface-hover: #1c1c28;
+            --border: rgba(255, 255, 255, 0.06);
+            --border-strong: rgba(255, 255, 255, 0.1);
+            --text: #e4e4ec;
+            --text-dim: #7a7a8e;
+            --text-faint: #4a4a5e;
+            --green: #00e4a0;
+            --green-dim: rgba(0, 228, 160, 0.08);
+            --green-mid: rgba(0, 228, 160, 0.15);
+            --amber: #f0c050;
+            --max: 1080px;
+            --serif: Didot, "Bodoni MT", "Noto Serif Display", "Playfair Display", "Times New Roman", Georgia, serif;
+            --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+            --mono: "Berkeley Mono", "SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
         }
-        * { box-sizing: border-box; margin: 0; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
+
         body {
             min-height: 100vh;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: var(--sans);
             background: var(--bg);
             color: var(--text);
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
         }
-        a { color: inherit; text-decoration: none; }
-        a:hover { color: var(--text); }
-        .shell { width: min(calc(100% - 48px), var(--max)); margin: 0 auto; }
 
-        /* Nav */
-        .nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; }
-        .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 0.95rem; font-weight: 600; }
-        .brand-mark {
-            width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
-            background: var(--accent-dim); color: var(--accent); font-size: 0.75rem; font-weight: 700;
+        a { color: inherit; text-decoration: none; transition: color 0.2s; }
+
+        .wrap { width: min(calc(100% - 48px), var(--max)); margin: 0 auto; }
+
+        /* ---- NAV ---- */
+        .nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 24px 0;
+            animation: fadeIn 0.6s ease both;
         }
-        .nav-links { display: flex; gap: 24px; color: var(--text-secondary); font-size: 0.875rem; }
+        .logo {
+            display: inline-flex; align-items: center; gap: 10px;
+            font-family: var(--mono); font-size: 0.85rem; font-weight: 600;
+            letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim);
+        }
+        .logo-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 12px rgba(0, 228, 160, 0.5);
+            animation: glowPulse 3s ease-in-out infinite;
+        }
+        .nav-links {
+            display: flex; gap: 32px;
+            font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-faint);
+        }
         .nav-links a:hover { color: var(--text); }
 
-        /* Hero */
+        /* ---- HERO ---- */
         .hero {
-            padding: 72px 0 48px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 48px;
-            align-items: center;
+            position: relative;
+            padding: 100px 0 80px;
+            text-align: center;
         }
-        .eyebrow {
-            display: inline-block; padding: 6px 14px;
-            border-radius: 100px; background: var(--accent-dim);
-            color: var(--accent); font-size: 0.8rem; font-weight: 500; letter-spacing: 0.02em;
+        .hero::before {
+            content: "";
+            position: absolute;
+            top: -60px; left: 50%; transform: translateX(-50%);
+            width: 800px; height: 600px;
+            background: radial-gradient(ellipse at center,
+                rgba(0, 228, 160, 0.06) 0%,
+                rgba(0, 228, 160, 0.02) 40%,
+                transparent 70%);
+            pointer-events: none;
+            z-index: 0;
         }
-        .hero h1 { margin: 20px 0 16px; font-size: clamp(2.5rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.04em; font-weight: 700; }
-        .hero p { max-width: 44ch; color: var(--text-secondary); font-size: 1.05rem; line-height: 1.6; }
-        .hero-copy { display: flex; flex-direction: column; }
-        .actions { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; }
-        .button, .button-secondary {
-            display: inline-flex; align-items: center; justify-content: center;
-            height: 44px; padding: 0 20px; border-radius: 10px; font-size: 0.9rem; font-weight: 600;
-            transition: opacity 0.15s;
-        }
-        .button { background: var(--accent); color: var(--bg); border: none; }
-        .button:hover { opacity: 0.85; }
-        .button-secondary { border: 1px solid var(--line-strong); background: transparent; color: var(--text); }
-        .button-secondary:hover { border-color: rgba(255,255,255,0.25); }
+        .hero > * { position: relative; z-index: 1; }
 
-        /* Terminal card */
-        .hero-card {
-            padding: 2px; border-radius: 16px;
-            background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+        .hero-label {
+            display: inline-flex; align-items: center; gap: 8px;
+            margin-bottom: 32px;
+            font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em;
+            text-transform: uppercase; color: var(--green);
+            animation: fadeUp 0.7s ease both;
+            animation-delay: 0.1s;
+            opacity: 0;
         }
-        .hero-card-inner {
-            padding: 20px; border-radius: 14px; background: var(--surface);
-        }
-        .terminal { padding: 16px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
-        .terminal-top { display: flex; gap: 6px; margin-bottom: 14px; }
-        .terminal-top span { width: 8px; height: 8px; border-radius: 50%; }
-        .terminal-top span:nth-child(1) { background: #ff5f57; }
-        .terminal-top span:nth-child(2) { background: #febc2e; }
-        .terminal-top span:nth-child(3) { background: #28c840; }
-        .terminal pre, .connect code, .snippet pre {
-            margin: 0; white-space: pre-wrap; word-break: break-word;
-            font-family: "SF Mono", "Fira Code", Consolas, monospace;
-            font-size: 0.85rem; line-height: 1.7;
-        }
-        .line-label { color: var(--text-secondary); }
-        .line-command { color: var(--text); }
-        .line-good { color: var(--accent); }
-        .line-note { color: var(--amber); }
-        .stats { margin-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .stat { padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.03); }
-        .stat strong { display: block; margin-bottom: 4px; font-size: 0.85rem; font-weight: 600; }
-        .stat span { color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; }
-
-        /* Sections */
-        section { padding: 48px 0; }
-        .section-head { margin-bottom: 24px; }
-        .section-head h2 { font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.03em; font-weight: 700; }
-        .section-head p { margin-top: 8px; color: var(--text-secondary); font-size: 0.95rem; }
-        .divider { height: 1px; background: var(--line); margin: 0; border: none; }
-
-        /* Grids */
-        .grid-3, .grid-2 { display: grid; gap: 12px; }
-        .grid-3 { grid-template-columns: repeat(3, 1fr); }
-        .grid-2 { grid-template-columns: repeat(2, 1fr); }
-
-        /* Cards */
-        .card {
-            padding: 24px; border-radius: var(--radius);
-            background: var(--surface); border: 1px solid var(--line);
-        }
-        .step-number {
-            display: inline-grid; place-items: center;
-            width: 32px; height: 32px; border-radius: 8px; margin-bottom: 14px;
-            background: var(--accent-dim); color: var(--accent); font-size: 0.85rem; font-weight: 700;
-        }
-        .card h3 { margin-bottom: 8px; font-size: 1rem; font-weight: 600; }
-        .card p { color: var(--text-secondary); font-size: 0.875rem; }
-
-        /* Capabilities */
-        .capability { min-height: 140px; }
-        .capability small {
-            display: inline-block; margin-bottom: 10px; padding: 3px 8px; border-radius: 4px;
-            background: var(--accent-dim); color: var(--accent);
-            font-family: "SF Mono", Consolas, monospace; font-size: 0.7rem; letter-spacing: 0.02em;
-            text-transform: none;
-        }
-        .capability strong { display: block; margin-bottom: 8px; font-size: 0.95rem; font-weight: 600; }
-        .price-kicker, .api-kicker {
-            display: inline-block; margin-bottom: 10px;
-            color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; font-weight: 600;
+        .hero-label::before, .hero-label::after {
+            content: ""; display: block; width: 24px; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--green), transparent);
         }
 
-        /* Pricing */
-        .pricing-table {
-            width: 100%; border-collapse: collapse;
+        .hero h1 {
+            font-family: var(--serif);
+            font-size: clamp(3rem, 7vw, 5.5rem);
+            font-weight: 400;
+            line-height: 1.05;
+            letter-spacing: -0.03em;
+            max-width: 14ch;
+            margin: 0 auto 28px;
+            animation: fadeUp 0.7s ease both;
+            animation-delay: 0.2s;
+            opacity: 0;
         }
-        .pricing-table th, .pricing-table td {
-            padding: 14px 0; text-align: left;
-            border-bottom: 1px solid var(--line);
+
+        .hero-sub {
+            max-width: 48ch; margin: 0 auto 44px;
+            color: var(--text-dim); font-size: 1.1rem; line-height: 1.65;
+            animation: fadeUp 0.7s ease both;
+            animation-delay: 0.35s;
+            opacity: 0;
         }
-        .pricing-table th { color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
-        .pricing-table td { font-size: 0.9rem; }
+
+        .hero-actions {
+            display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+            animation: fadeUp 0.7s ease both;
+            animation-delay: 0.45s;
+            opacity: 0;
+        }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            height: 48px; padding: 0 28px; border-radius: 6px;
+            font-family: var(--mono); font-size: 0.78rem; font-weight: 600;
+            letter-spacing: 0.04em; text-transform: uppercase;
+            transition: all 0.2s ease; border: none; cursor: pointer;
+        }
+        .btn-primary {
+            background: var(--green); color: var(--bg);
+        }
+        .btn-primary:hover {
+            background: #00f0aa;
+            box-shadow: 0 0 30px rgba(0, 228, 160, 0.2);
+        }
+        .btn-ghost {
+            background: transparent; color: var(--text-dim);
+            border: 1px solid var(--border-strong);
+        }
+        .btn-ghost:hover {
+            color: var(--text); border-color: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.03);
+        }
+
+        /* ---- TERMINAL ---- */
+        .terminal-wrap {
+            max-width: 640px; margin: 60px auto 0;
+            animation: fadeUp 0.8s ease both;
+            animation-delay: 0.55s;
+            opacity: 0;
+        }
+        .terminal-frame {
+            position: relative;
+            border-radius: 12px;
+            background: linear-gradient(160deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%);
+            padding: 1px;
+        }
+        .terminal-frame::after {
+            content: "";
+            position: absolute; inset: 0; border-radius: 12px;
+            background: linear-gradient(160deg, rgba(0,228,160,0.08) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .terminal-body {
+            background: var(--surface);
+            border-radius: 11px;
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+        }
+        .terminal-bar {
+            display: flex; align-items: center; gap: 6px;
+            padding: 14px 18px 0;
+        }
+        .terminal-bar span {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+        }
+        .terminal-bar span:first-child { background: #ff5f57; }
+        .terminal-bar span:nth-child(2) { background: #febc2e; }
+        .terminal-bar span:nth-child(3) { background: #28c840; }
+        .terminal-code {
+            padding: 20px 22px 24px;
+            font-family: var(--mono); font-size: 0.82rem; line-height: 1.9;
+        }
+        .t-prompt { color: var(--text-faint); }
+        .t-cmd { color: var(--text); }
+        .t-ok { color: var(--green); }
+        .t-note { color: var(--amber); }
+        .t-cursor {
+            display: inline-block; width: 7px; height: 14px;
+            background: var(--green); margin-left: 2px;
+            vertical-align: text-bottom;
+            animation: blink 1.1s step-end infinite;
+        }
+
+        /* ---- VALUE STRIP ---- */
+        .value-strip {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            max-width: 640px; margin: 20px auto 0; gap: 1px;
+            background: var(--border);
+            border-radius: 0 0 12px 12px;
+            overflow: hidden;
+            animation: fadeUp 0.8s ease both;
+            animation-delay: 0.65s;
+            opacity: 0;
+        }
+        .value-item {
+            padding: 18px 20px;
+            background: var(--surface);
+        }
+        .value-item:first-child { border-bottom-left-radius: 11px; }
+        .value-item:last-child { border-bottom-right-radius: 11px; }
+        .value-item strong {
+            display: block; font-size: 0.8rem; font-weight: 600;
+            margin-bottom: 4px; letter-spacing: -0.01em;
+        }
+        .value-item span {
+            font-size: 0.75rem; color: var(--text-dim); line-height: 1.45;
+        }
+
+        /* ---- SECTIONS ---- */
+        section {
+            padding: 80px 0;
+            animation: fadeIn 0.5s ease both;
+        }
+        .section-line {
+            width: 100%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-strong) 20%, var(--border-strong) 80%, transparent);
+            border: none;
+        }
+        .section-label {
+            font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.12em;
+            text-transform: uppercase; color: var(--text-faint);
+            margin-bottom: 12px;
+        }
+        .section-title {
+            font-family: var(--serif);
+            font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+        }
+        .section-desc {
+            margin-top: 12px; color: var(--text-dim);
+            font-size: 0.95rem; max-width: 44ch;
+        }
+        .section-head { margin-bottom: 48px; }
+
+        /* ---- STEPS ---- */
+        .steps {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 2px; border-radius: 12px; overflow: hidden;
+            background: var(--border);
+        }
+        .step {
+            padding: 36px 28px;
+            background: var(--surface);
+            transition: background 0.3s;
+        }
+        .step:hover { background: var(--surface-raised); }
+        .step-num {
+            font-family: var(--mono); font-size: 0.65rem;
+            color: var(--green); letter-spacing: 0.06em;
+            margin-bottom: 20px; display: block;
+        }
+        .step h3 {
+            font-family: var(--serif); font-size: 1.25rem; font-weight: 400;
+            margin-bottom: 10px; letter-spacing: -0.01em;
+        }
+        .step p { color: var(--text-dim); font-size: 0.85rem; line-height: 1.55; }
+
+        /* ---- CAPABILITIES ---- */
+        .capabilities {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 2px; border-radius: 12px; overflow: hidden;
+            background: var(--border);
+        }
+        .cap {
+            padding: 32px 28px;
+            background: var(--surface);
+            transition: background 0.3s;
+            min-height: 160px;
+        }
+        .cap:hover { background: var(--surface-raised); }
+        .cap-tag {
+            display: inline-block; margin-bottom: 14px;
+            padding: 4px 10px; border-radius: 4px;
+            background: var(--green-dim);
+            font-family: var(--mono); font-size: 0.68rem;
+            color: var(--green); letter-spacing: 0.02em;
+        }
+        .cap h3 {
+            font-size: 0.95rem; font-weight: 600;
+            margin-bottom: 8px; letter-spacing: -0.01em;
+        }
+        .cap p { color: var(--text-dim); font-size: 0.82rem; line-height: 1.5; }
+
+        /* ---- PRICING ---- */
+        .pricing-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 36px 32px;
+            max-width: 640px;
+        }
+        .pricing-table { width: 100%; border-collapse: collapse; }
+        .pricing-table th {
+            text-align: left; padding: 0 0 16px;
+            font-family: var(--mono); font-size: 0.65rem;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            color: var(--text-faint); font-weight: 500;
+            border-bottom: 1px solid var(--border-strong);
+        }
+        .pricing-table td {
+            padding: 16px 0; font-size: 0.9rem;
+            border-bottom: 1px solid var(--border);
+        }
         .pricing-table tr:last-child td { border-bottom: none; }
-        .pricing-note { margin-top: 16px; color: var(--text-secondary); font-size: 0.85rem; }
+        .pricing-table .tld {
+            font-family: var(--mono); font-weight: 600;
+            color: var(--text); letter-spacing: 0.02em;
+        }
+        .pricing-table .price { color: var(--green); font-weight: 600; }
+        .pricing-table .includes { color: var(--text-dim); font-size: 0.82rem; }
+        .pricing-note {
+            margin-top: 20px; padding-top: 16px;
+            border-top: 1px solid var(--border);
+            color: var(--text-faint); font-size: 0.8rem;
+        }
 
-        /* API */
-        .route-list { display: grid; gap: 8px; }
+        /* ---- API ---- */
+        .api-layout {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 48px; align-items: start;
+        }
+        .routes {
+            display: grid; gap: 8px;
+        }
         .route {
-            padding: 12px 14px; border-radius: 8px;
-            background: rgba(255,255,255,0.03); color: var(--text-secondary); font-size: 0.85rem;
+            padding: 16px 18px; border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            transition: border-color 0.2s;
         }
-        .route strong {
-            color: var(--text); font-family: "SF Mono", Consolas, monospace; font-size: 0.8rem;
+        .route:hover { border-color: var(--border-strong); }
+        .route-method {
+            font-family: var(--mono); font-size: 0.78rem;
+            font-weight: 600; color: var(--text);
+            display: block; margin-bottom: 4px;
         }
-
-        /* Connect */
-        .connect-stack { display: grid; gap: 16px; }
-        .copy-row { display: flex; gap: 8px; align-items: stretch; margin-top: 12px; }
-        .copy-target, .snippet {
-            padding: 14px; border-radius: 10px;
-            background: var(--bg); border: 1px solid var(--line);
-        }
-        .copy-target { flex: 1; display: flex; align-items: center; color: var(--text); overflow-x: auto; font-size: 0.875rem; }
-        .copy-button {
-            border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--text);
-            border-radius: 10px; padding: 0 16px; min-width: 100px;
-            font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-            transition: background 0.15s;
-        }
-        .copy-button:hover { background: rgba(255,255,255,0.12); }
-        .mini-label {
-            display: block; margin-bottom: 8px;
-            color: var(--text-secondary); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500;
+        .route-desc {
+            font-size: 0.8rem; color: var(--text-dim);
         }
 
-        /* Footer */
-        footer { padding: 32px 0 48px; color: var(--text-secondary); font-size: 0.85rem; }
-        .footer-row {
-            display: flex; justify-content: space-between; align-items: center; padding-top: 16px;
-            border-top: 1px solid var(--line);
+        /* ---- CONNECT ---- */
+        .connect-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 2px; border-radius: 12px; overflow: hidden;
+            background: var(--border);
         }
-        .footer-links { display: flex; gap: 20px; }
-        .footer-links a:hover { color: var(--text); }
+        .connect-panel {
+            padding: 36px 32px;
+            background: var(--surface);
+        }
+        .connect-label {
+            display: block; margin-bottom: 12px;
+            font-family: var(--mono); font-size: 0.6rem;
+            letter-spacing: 0.12em; text-transform: uppercase;
+            color: var(--text-faint);
+        }
+        .url-row {
+            display: flex; gap: 8px;
+        }
+        .url-box {
+            flex: 1; padding: 14px 16px; border-radius: 8px;
+            background: var(--bg); border: 1px solid var(--border);
+            font-family: var(--mono); font-size: 0.82rem; color: var(--text);
+            overflow-x: auto; display: flex; align-items: center;
+        }
+        .copy-btn {
+            padding: 0 20px; border-radius: 8px;
+            background: var(--surface-raised); border: 1px solid var(--border-strong);
+            color: var(--text-dim); font-family: var(--mono); font-size: 0.72rem;
+            font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .copy-btn:hover {
+            color: var(--text); background: var(--surface-hover);
+            border-color: rgba(255,255,255,0.15);
+        }
+        .snippet-box {
+            margin-top: 20px; padding: 18px 20px; border-radius: 8px;
+            background: var(--bg); border: 1px solid var(--border);
+        }
+        .snippet-box pre {
+            margin: 0; font-family: var(--mono); font-size: 0.78rem;
+            line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+        }
+        .connect-info h3 {
+            font-family: var(--serif); font-size: 1.3rem; font-weight: 400;
+            margin-bottom: 14px; letter-spacing: -0.01em;
+        }
+        .connect-info p {
+            color: var(--text-dim); font-size: 0.88rem; line-height: 1.6;
+        }
+        .connect-info .checklist {
+            list-style: none; margin-top: 20px;
+            display: grid; gap: 10px;
+        }
+        .connect-info .checklist li {
+            display: flex; align-items: baseline; gap: 10px;
+            color: var(--text-dim); font-size: 0.82rem;
+        }
+        .connect-info .checklist li::before {
+            content: "\2713"; color: var(--green);
+            font-size: 0.75rem; flex-shrink: 0;
+        }
 
-        /* Responsive */
-        @media (max-width: 980px) {
-            .hero, .grid-3, .grid-2 { grid-template-columns: 1fr; }
-            .stats { grid-template-columns: 1fr; }
+        /* ---- FOOTER ---- */
+        footer {
+            padding: 28px 0 48px;
         }
-        @media (max-width: 640px) {
-            .shell { width: min(calc(100% - 32px), var(--max)); }
+        .footer-inner {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            font-family: var(--mono); font-size: 0.7rem;
+            color: var(--text-faint); letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .footer-links { display: flex; gap: 24px; }
+        .footer-links a:hover { color: var(--text-dim); }
+
+        /* ---- RESPONSIVE ---- */
+        @media (max-width: 860px) {
+            .steps, .capabilities { grid-template-columns: 1fr; }
+            .api-layout, .connect-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: clamp(2.4rem, 6vw, 3.5rem); }
+            .value-strip { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 580px) {
+            .wrap { width: min(calc(100% - 32px), var(--max)); }
             .nav-links { display: none; }
-            .hero { padding-top: 40px; }
-            .copy-row, .footer-row { flex-direction: column; }
-            .copy-button { min-height: 44px; }
+            .hero { padding: 60px 0 48px; }
+            .hero-actions { flex-direction: column; align-items: stretch; }
+            .btn { justify-content: center; }
+            .url-row { flex-direction: column; }
+            .copy-btn { padding: 14px; text-align: center; }
+            .footer-inner { flex-direction: column; gap: 12px; text-align: center; }
         }
     </style>
 </head>
 <body>
-    <div class="shell">
+    <div class="wrap">
+
         <header class="nav">
-            <a class="brand" href="#top" aria-label="InstaDomain home">
-                <span class="brand-mark">ID</span>
-                <span>InstaDomain</span>
+            <a class="logo" href="#top" aria-label="InstaDomain home">
+                <span class="logo-dot"></span>
+                InstaDomain
             </a>
             <nav class="nav-links">
                 <a href="#how">How it works</a>
@@ -247,119 +527,142 @@
                 <a href="#connect">Connect</a>
             </nav>
         </header>
+
         <main id="top">
             <section class="hero">
-                <div class="hero-copy">
-                    <span class="eyebrow">MCP server for domains</span>
-                    <h1>Your AI buys the domain. You keep building.</h1>
-                    <p>Connect once. Your AI assistant checks availability, suggests names, handles checkout, and sets up DNS. You never leave your editor.</p>
-                    <div class="actions">
-                        <a class="button" href="#connect">Connect InstaDomain</a>
-                        <a class="button-secondary" href="#pricing">See pricing</a>
+                <div class="hero-label">
+                    MCP server for domains
+                </div>
+                <h1>Your AI buys the domain. You keep building.</h1>
+                <p class="hero-sub">Connect once. Your AI assistant checks availability, suggests names, handles checkout, and sets up DNS. You never leave your editor.</p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="#connect">Connect InstaDomain</a>
+                    <a class="btn btn-ghost" href="#pricing">See pricing</a>
+                </div>
+
+                <div class="terminal-wrap">
+                    <div class="terminal-frame">
+                        <div class="terminal-body">
+                            <div class="terminal-bar"><span></span><span></span><span></span></div>
+                            <div class="terminal-code">
+<span class="t-prompt">you:</span> <span class="t-cmd">grab a .com for my notes app</span>
+<span class="t-prompt">ai:</span>  <span class="t-cmd">Checking names...</span>
+<span class="t-ok">     notesprint.com available &ndash; $14.09</span>
+<span class="t-cmd">     Opening checkout.</span>
+<span class="t-ok">     Registered. Cloudflare DNS ready.</span>
+<span class="t-note">     30 seconds. No tab switching.</span><span class="t-cursor"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="value-strip">
+                        <div class="value-item"><strong>Stay in flow</strong><span>Buy domains from the same conversation.</span></div>
+                        <div class="value-item"><strong>DNS included</strong><span>Cloudflare zone + API token, automatic.</span></div>
+                        <div class="value-item"><strong>No upsells</strong><span>Wholesale + small markup. That's it.</span></div>
                     </div>
                 </div>
-                <div class="hero-card"><div class="hero-card-inner">
-                    <div class="terminal">
-                        <div class="terminal-top"><span></span><span></span><span></span></div>
-<pre><span class="line-label">you:</span> <span class="line-command">grab a .com for my notes app</span>
-<span class="line-label">ai:</span>  <span class="line-command">Checking names...</span>
-<span class="line-good">notesprint.com available - $14.09</span>
-<span class="line-command">Opening checkout.</span>
-<span class="line-good">Registered. Cloudflare DNS ready.</span>
-<span class="line-note">30 seconds. No tab switching.</span></pre>
-                    </div>
-                    <div class="stats">
-                        <div class="stat"><strong>Stay in flow</strong><span>Buy domains from the same conversation.</span></div>
-                        <div class="stat"><strong>DNS included</strong><span>Cloudflare zone + API token, automatic.</span></div>
-                        <div class="stat"><strong>No upsells</strong><span>Wholesale + small markup. That's it.</span></div>
-                    </div>
-                </div></div>
+            </section>
 
-            <hr class="divider">
+            <hr class="section-line">
 
             <section id="how">
                 <div class="section-head">
-                    <h2>Three steps. One conversation.</h2>
+                    <div class="section-label">How it works</div>
+                    <h2 class="section-title">Three steps. One conversation.</h2>
                 </div>
-                <div class="grid-3">
-                    <article class="card"><div class="step-number">1</div><h3>Connect the MCP server</h3><p>Point Claude, Cursor, or any MCP client at the URL. One-time setup.</p></article>
-                    <article class="card"><div class="step-number">2</div><h3>Ask your AI</h3><p>Check a name, compare options, or get suggestions. Your assistant handles it.</p></article>
-                    <article class="card"><div class="step-number">3</div><h3>Domain is live</h3><p>Stripe checkout, domain registration, Cloudflare DNS, scoped API token. All automatic.</p></article>
+                <div class="steps">
+                    <article class="step">
+                        <span class="step-num">01</span>
+                        <h3>Connect the MCP server</h3>
+                        <p>Point Claude, Cursor, or any MCP client at the URL. One-time setup.</p>
+                    </article>
+                    <article class="step">
+                        <span class="step-num">02</span>
+                        <h3>Ask your AI</h3>
+                        <p>Check a name, compare options, or get suggestions. Your assistant handles it.</p>
+                    </article>
+                    <article class="step">
+                        <span class="step-num">03</span>
+                        <h3>Domain is live</h3>
+                        <p>Stripe checkout, domain registration, Cloudflare DNS, scoped API token. All automatic.</p>
+                    </article>
                 </div>
             </section>
 
-            <hr class="divider">
+            <hr class="section-line">
 
             <section id="capabilities">
                 <div class="section-head">
-                    <h2>What your AI gets</h2>
+                    <div class="section-label">Capabilities</div>
+                    <h2 class="section-title">What your AI gets</h2>
                 </div>
-                <div class="grid-3">
-                    <article class="card capability"><small>check_domain</small><strong>Check availability + price</strong><p>One domain, instant answer with exact cost.</p></article>
-                    <article class="card capability"><small>check_domains_bulk</small><strong>Compare up to 50 at once</strong><p>Screen a whole list in a single call.</p></article>
-                    <article class="card capability"><small>suggest_domains</small><strong>Generate name ideas</strong><p>Keyword in, available domains out.</p></article>
-                    <article class="card capability"><small>buy_domain</small><strong>Purchase via Stripe</strong><p>Checkout link, user pays, domain registers.</p></article>
-                    <article class="card capability"><small>get_domain_status</small><strong>Track the order</strong><p>Polls until registered. Returns DNS details.</p></article>
-                    <article class="card capability"><small>included</small><strong>WHOIS privacy + Cloudflare</strong><p>Every purchase gets privacy and a ready DNS zone.</p></article>
+                <div class="capabilities">
+                    <article class="cap"><span class="cap-tag">check_domain</span><h3>Check availability + price</h3><p>One domain, instant answer with exact cost.</p></article>
+                    <article class="cap"><span class="cap-tag">check_domains_bulk</span><h3>Compare up to 50 at once</h3><p>Screen a whole list in a single call.</p></article>
+                    <article class="cap"><span class="cap-tag">suggest_domains</span><h3>Generate name ideas</h3><p>Keyword in, available domains out.</p></article>
+                    <article class="cap"><span class="cap-tag">buy_domain</span><h3>Purchase via Stripe</h3><p>Checkout link, user pays, domain registers.</p></article>
+                    <article class="cap"><span class="cap-tag">get_domain_status</span><h3>Track the order</h3><p>Polls until registered. Returns DNS details.</p></article>
+                    <article class="cap"><span class="cap-tag">included</span><h3>WHOIS privacy + Cloudflare</h3><p>Every purchase gets privacy and a ready DNS zone.</p></article>
                 </div>
             </section>
 
-            <hr class="divider">
+            <hr class="section-line">
 
             <section id="pricing">
                 <div class="section-head">
-                    <h2>Wholesale pricing. No games.</h2>
+                    <div class="section-label">Pricing</div>
+                    <h2 class="section-title">Wholesale pricing. No games.</h2>
                 </div>
-                <div class="card">
+                <div class="pricing-card">
                     <table class="pricing-table">
                         <thead><tr><th>TLD</th><th>Typical price</th><th>Includes</th></tr></thead>
                         <tbody>
-                            <tr><td><strong>.com</strong></td><td>~$14</td><td>Registration + WHOIS privacy + Cloudflare DNS</td></tr>
-                            <tr><td><strong>.dev</strong></td><td>~$19</td><td>Registration + WHOIS privacy + Cloudflare DNS</td></tr>
-                            <tr><td><strong>.io</strong></td><td>~$45</td><td>Registration + WHOIS privacy + Cloudflare DNS</td></tr>
+                            <tr><td class="tld">.com</td><td class="price">~$14</td><td class="includes">Registration + WHOIS privacy + Cloudflare DNS</td></tr>
+                            <tr><td class="tld">.dev</td><td class="price">~$19</td><td class="includes">Registration + WHOIS privacy + Cloudflare DNS</td></tr>
+                            <tr><td class="tld">.io</td><td class="price">~$45</td><td class="includes">Registration + WHOIS privacy + Cloudflare DNS</td></tr>
                         </tbody>
                     </table>
-                    <p class="pricing-note">Exact price shown before purchase. Wholesale cost + small flat markup.</p>
+                    <p class="pricing-note">Exact price shown before purchase. Wholesale cost + small flat markup. No hidden fees.</p>
                 </div>
             </section>
 
-            <hr class="divider">
+            <hr class="section-line">
 
             <section id="api">
-                <div class="grid-2">
-                    <div class="section-head">
-                        <h2>REST API</h2>
-                        <p>Free, no auth. For direct HTTP integration.</p>
-                        <div class="actions"><a class="button-secondary" href="/docs">API docs</a></div>
-                    </div>
-                    <div class="card">
-                        <div class="route-list">
-                            <div class="route"><strong>GET /check/{domain}</strong><br>Availability + pricing</div>
-                            <div class="route"><strong>POST /check</strong><br>Bulk check up to 50 domains</div>
-                            <div class="route"><strong>GET /suggest?keyword=X</strong><br>Generate and check name ideas</div>
+                <div class="api-layout">
+                    <div>
+                        <div class="section-head">
+                            <div class="section-label">REST API</div>
+                            <h2 class="section-title">Free, no auth.</h2>
+                            <p class="section-desc">For direct HTTP integration. No API key needed.</p>
                         </div>
+                        <a class="btn btn-ghost" href="/docs">API docs</a>
+                    </div>
+                    <div class="routes">
+                        <div class="route"><span class="route-method">GET /check/{domain}</span><span class="route-desc">Availability + pricing</span></div>
+                        <div class="route"><span class="route-method">POST /check</span><span class="route-desc">Bulk check up to 50 domains</span></div>
+                        <div class="route"><span class="route-method">GET /suggest?keyword=X</span><span class="route-desc">Generate and check name ideas</span></div>
                     </div>
                 </div>
             </section>
 
-            <hr class="divider">
+            <hr class="section-line">
 
             <section id="connect">
                 <div class="section-head">
-                    <h2>Connect in 30 seconds.</h2>
+                    <div class="section-label">Get started</div>
+                    <h2 class="section-title">Connect in 30 seconds.</h2>
                 </div>
-                <div class="grid-2">
-                    <div class="card connect">
-                        <div class="connect-stack">
-                            <div>
-                                <span class="mini-label">MCP server URL</span>
-                                <div class="copy-row">
-                                    <div class="copy-target"><code id="mcp-url">https://instadomain.fly.dev/mcp/</code></div>
-                                    <button class="copy-button" id="copy-button" type="button" aria-live="polite">Copy URL</button>
-                                </div>
+                <div class="connect-grid">
+                    <div class="connect-panel">
+                        <div>
+                            <span class="connect-label">MCP server URL</span>
+                            <div class="url-row">
+                                <div class="url-box"><code id="mcp-url">https://instadomain.fly.dev/mcp/</code></div>
+                                <button class="copy-btn" id="copy-button" type="button" aria-live="polite">Copy</button>
                             </div>
-                            <div class="snippet">
-                                <span class="mini-label">claude_desktop_config.json</span>
+                        </div>
+                        <div class="snippet-box" style="margin-top: 24px;">
+                            <span class="connect-label">claude_desktop_config.json</span>
 <pre>{
   "mcpServers": {
     "instadomain": {
@@ -368,36 +671,48 @@
     }
   }
 }</pre>
-                            </div>
                         </div>
                     </div>
-                    <div class="card">
-                        <span class="price-kicker">After checkout</span>
-                        <h3 style="margin-top: 0;">Everything wires up automatically.</h3>
-                        <p>Stripe payment, OpenSRS registration, Cloudflare DNS zone, scoped API token. WHOIS privacy included.</p>
+                    <div class="connect-panel connect-info">
+                        <h3>Everything wires up automatically.</h3>
+                        <p>After checkout, InstaDomain handles the entire chain.</p>
+                        <ul class="checklist">
+                            <li>Stripe payment processed</li>
+                            <li>Domain registered via OpenSRS</li>
+                            <li>Cloudflare DNS zone created</li>
+                            <li>Scoped API token returned</li>
+                            <li>WHOIS privacy enabled</li>
+                        </ul>
                     </div>
                 </div>
             </section>
         </main>
+
         <footer>
-            <div class="footer-row">
-                <div>Your AI buys the domain. You keep building.</div>
-                <div class="footer-links"><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div>
+            <div class="footer-inner">
+                <span>Your AI buys the domain. You keep building.</span>
+                <div class="footer-links">
+                    <a href="/terms">Terms</a>
+                    <a href="/privacy">Privacy</a>
+                </div>
             </div>
         </footer>
+
     </div>
     <script>
         (function () {
             var button = document.getElementById("copy-button");
             var url = document.getElementById("mcp-url");
-            if (!button || !url || !navigator.clipboard) {
-                return;
-            }
+            if (!button || !url || !navigator.clipboard) return;
             button.addEventListener("click", function () {
                 navigator.clipboard.writeText(url.textContent || "").then(function () {
                     var original = button.textContent;
                     button.textContent = "Copied";
-                    window.setTimeout(function () { button.textContent = original; }, 1600);
+                    button.style.color = "#00e4a0";
+                    window.setTimeout(function () {
+                        button.textContent = original;
+                        button.style.color = "";
+                    }, 1600);
                 });
             });
         }());
