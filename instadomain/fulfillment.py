@@ -279,6 +279,16 @@ async def fulfill_order(
         import json as _json
         registrant_contact = _json.loads(registrant_contact)
 
+    # Reject orders missing registrant contact (e.g. pre-migration orders).
+    # Falling back to DEFAULT_CONTACT would register in InstaDomain's name,
+    # violating ICANN registrant accuracy requirements.
+    if registrant_contact is None:
+        logger.error("Order %s has no registrant contact, cannot register", order_id)
+        return await update_order_status(
+            pool, order_id, "failed",
+            error_msg="Missing registrant contact information",
+        )
+
     # Step 1: Register domain at OpenSRS with placeholder nameservers
     # OpenSRS client is sync -- run in thread to avoid blocking the event loop
     try:

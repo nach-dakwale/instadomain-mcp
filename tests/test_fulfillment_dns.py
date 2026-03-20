@@ -16,6 +16,18 @@ def test_fulfillment_marks_dns_pending_when_zone_creation_fails(monkeypatch):
         "retry_count": 0,
         "cloudflare_zone_id": None,
         "nameservers": None,
+        "registrant_contact": {
+            "first_name": "Test",
+            "last_name": "User",
+            "email": "buyer@example.com",
+            "org_name": "",
+            "address1": "123 Test St",
+            "city": "San Francisco",
+            "state": "CA",
+            "postal_code": "94102",
+            "country": "US",
+            "phone": "+1.4155551234",
+        },
     }
     status_updates = []
     scheduled_retries = []
