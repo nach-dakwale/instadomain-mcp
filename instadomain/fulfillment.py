@@ -17,7 +17,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from instadomain.emails import send_purchase_success_email, send_refund_email
+from instadomain.emails import send_crypto_refund_alert, send_purchase_success_email, send_refund_email
 from instadomain.encryption import encrypt
 from instadomain.orders import get_order, update_order_status
 from instadomain.stripe_handler import issue_refund
@@ -274,7 +274,7 @@ async def fulfill_order(
     payment_intent = order.get("stripe_payment_intent")
 
     # Step 1: Register domain at OpenSRS with placeholder nameservers
-    # OpenSRS client is sync — run in thread to avoid blocking the event loop
+    # OpenSRS client is sync -- run in thread to avoid blocking the event loop
     try:
         reg_result = await asyncio.to_thread(
             opensrs.register,
@@ -285,8 +285,29 @@ async def fulfill_order(
         )
     except Exception as exc:
         logger.error("OpenSRS registration failed for %s: %s", domain, exc)
-        # Compensate: issue refund (sync — run in thread)
-        if payment_intent:
+        error_msg = f"OpenSRS registration failed: {exc}"
+        is_crypto = order.get("payment_method") == "x402"
+
+        if is_crypto:
+            # Crypto payments are irreversible. Alert for manual refund.
+            logger.critical(
+                "Registration failed AFTER crypto payment for order %s domain %s",
+                order_id, domain,
+            )
+            amount_usdc = f"{order.get('amount_cents', 0) / 100:.2f}"
+            try:
+                await send_crypto_refund_alert(
+                    order_id=order_id,
+                    domain=domain,
+                    amount_usdc=amount_usdc,
+                    payer_address=order.get("x402_payer_address"),
+                    tx_hash=order.get("x402_tx_hash"),
+                    error_msg=error_msg,
+                )
+            except Exception as alert_exc:
+                logger.error("Failed to send crypto refund alert for %s: %s", order_id, alert_exc)
+        elif payment_intent:
+            # Stripe: issue automatic refund
             try:
                 await asyncio.to_thread(issue_refund, payment_intent)
                 logger.info("Refund issued for payment_intent=%s", payment_intent)
@@ -296,7 +317,7 @@ async def fulfill_order(
 
         return await update_order_status(
             pool, order_id, "failed",
-            error_msg=f"OpenSRS registration failed: {exc}",
+            error_msg=error_msg,
         )
 
     # Step 2: Transition to setting_dns and create Cloudflare zone
