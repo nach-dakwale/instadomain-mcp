@@ -187,17 +187,33 @@ class OpenSRSClient:
         years: int,
         registrant_email: str,
         nameservers: list[str],
+        registrant_contact: dict | None = None,
     ) -> dict:
-        """Register a domain with WHOIS privacy and default contact info.
+        """Register a domain with WHOIS privacy.
+
+        When registrant_contact is provided, the user is set as owner
+        (legal registrant) and billing contact. InstaDomain stays as
+        admin and tech contact for service management. Falls back to
+        DEFAULT_CONTACT when no registrant_contact is given.
 
         Returns dict with order_id and expiry.
         """
-        contact = {**DEFAULT_CONTACT, "email": registrant_email}
+        if registrant_contact:
+            owner_contact = {**registrant_contact}
+            billing_contact = {**registrant_contact}
+            admin_contact = {**DEFAULT_CONTACT, "email": registrant_email}
+            tech_contact = {**DEFAULT_CONTACT, "email": registrant_email}
+        else:
+            owner_contact = {**DEFAULT_CONTACT, "email": registrant_email}
+            admin_contact = owner_contact
+            billing_contact = owner_contact
+            tech_contact = owner_contact
+
         contact_set = {
-            "owner": contact,
-            "admin": contact,
-            "billing": contact,
-            "tech": contact,
+            "owner": owner_contact,
+            "admin": admin_contact,
+            "billing": billing_contact,
+            "tech": tech_contact,
         }
         ns_list = [
             {"name": ns, "sortorder": str(i + 1)}
@@ -215,7 +231,7 @@ class OpenSRSClient:
             "custom_tech_contact": "0",
             "f_lock_domain": "1",
             "f_whois_privacy": "1",
-            "auto_renew": "0",
+            "auto_renew": "1",
             "nameserver_list": ns_list,
             "contact_set": contact_set,
         }
@@ -229,6 +245,61 @@ class OpenSRSClient:
             "order_id": attrs_data.get("id", ""),
             "expiry": attrs_data.get("registration_expiration_date", ""),
         }
+
+    def renew_domain(self, domain: str, years: int = 1) -> dict:
+        """Renew a domain for additional years.
+
+        Returns dict with order_id, new expiry date, and admin email.
+        """
+        # OpenSRS requires the current expiry year to prevent duplicate renewals
+        attrs = {
+            "domain": domain,
+            "period": str(years),
+            "handle": "process",
+            "auto_renew": "1",
+        }
+
+        xml_body = self._build_envelope("RENEW", "DOMAIN", attrs)
+        response = self._post(xml_body)
+        data = self._parse_response(response.text)
+
+        attrs_data = data.get("attributes", {})
+        return {
+            "order_id": attrs_data.get("id", ""),
+            "expiry": attrs_data.get("registration_expiration_date", ""),
+            "admin_email": attrs_data.get("admin_email", ""),
+        }
+
+    def get_transfer_auth_code(self, domain: str) -> str:
+        """Request the EPP/transfer authorization code for a domain.
+
+        Triggers OpenSRS to send the auth code. Returns the auth code
+        string from the API response.
+        """
+        attrs = {
+            "domain_name": domain,
+        }
+        xml_body = self._build_envelope("SEND_AUTHCODE", "DOMAIN", attrs)
+        response = self._post(xml_body)
+        data = self._parse_response(response.text)
+        attrs_data = data.get("attributes", {})
+        # OpenSRS returns the auth info in the response attributes
+        return attrs_data.get("domain_auth_info", "")
+
+    def unlock_domain(self, domain: str) -> None:
+        """Remove the registrar transfer lock from a domain.
+
+        This sets f_lock_domain to 0 so the domain can be transferred
+        to another registrar.
+        """
+        attrs = {
+            "domain": domain,
+            "data": "status",
+            "lock_state": "0",
+        }
+        xml_body = self._build_envelope("MODIFY", "DOMAIN", attrs)
+        response = self._post(xml_body)
+        self._parse_response(response.text)
 
     def update_nameservers(self, domain: str, nameservers: list[str]) -> None:
         """Update the nameservers for a domain."""
