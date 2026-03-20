@@ -132,14 +132,18 @@ async def get_pending_x402_order(pool: asyncpg.Pool, order_id: str) -> dict | No
 
 
 async def update_x402_settlement(
-    pool: asyncpg.Pool, order_id: str, tx_hash: str
+    pool: asyncpg.Pool,
+    order_id: str,
+    tx_hash: str,
+    payer_address: str | None = None,
 ) -> dict:
-    """Record the on-chain transaction hash for an x402 payment."""
+    """Record the on-chain transaction hash and payer address for an x402 payment."""
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "UPDATE orders SET x402_tx_hash = $1, updated_at = now() "
-            "WHERE id = $2 RETURNING *",
+            "UPDATE orders SET x402_tx_hash = $1, x402_payer_address = $2, updated_at = now() "
+            "WHERE id = $3 RETURNING *",
             tx_hash,
+            payer_address,
             order_id,
         )
     if row is None:

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS orders (
     nameservers             TEXT[],
     payment_method          TEXT NOT NULL DEFAULT 'stripe',
     x402_tx_hash            TEXT,
+    x402_payer_address      TEXT,
     status                  TEXT NOT NULL DEFAULT 'pending_payment',
     error_msg               TEXT,
     retry_count             INTEGER NOT NULL DEFAULT 0,
@@ -50,6 +51,18 @@ BEGIN
 END $$;
 """
 
+MIGRATION_X402_PAYER = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'orders' AND column_name = 'x402_payer_address'
+    ) THEN
+        ALTER TABLE orders ADD COLUMN x402_payer_address TEXT;
+    END IF;
+END $$;
+"""
+
 
 async def init_pool(database_url: str) -> asyncpg.Pool:
     """Create the connection pool and run the schema migration."""
@@ -58,6 +71,7 @@ async def init_pool(database_url: str) -> asyncpg.Pool:
     async with _pool.acquire() as conn:
         await conn.execute(SCHEMA)
         await conn.execute(MIGRATION_X402)
+        await conn.execute(MIGRATION_X402_PAYER)
     return _pool
 
 
