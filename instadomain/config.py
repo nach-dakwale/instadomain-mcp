@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # x402 crypto payments (USDC on Base)
     x402_wallet_address: str = ""
     x402_facilitator_url: str = "https://x402.org/facilitator"
-    x402_network: str = "eip155:8453"
+    x402_network: str = "eip155:84532"
 
     # Affiliate links
     dynadot_affiliate_id: str = "PLACEHOLDER_DYNADOT"
