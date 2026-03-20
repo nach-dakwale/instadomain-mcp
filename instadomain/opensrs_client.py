@@ -4,6 +4,7 @@ import hashlib
 import secrets
 import string
 import xml.etree.ElementTree as ET
+from xml.sax.saxutils import escape, quoteattr
 
 import httpx
 
@@ -27,7 +28,8 @@ DEFAULT_CONTACT = {
     "state": "CA",
     "postal_code": "94102",
     "country": "US",
-    "phone": "+1.0000000000",
+    # TODO: Replace with a real InstaDomain business phone number
+    "phone": "+1.4153300000",
     "email": "privacy@instadomain.dev",
 }
 
@@ -63,16 +65,21 @@ class OpenSRSClient:
             for i, v in enumerate(d):
                 if isinstance(v, (dict, list)):
                     items.append(f'<item key="{i}">{self._dict_to_xml(v)}</item>')
+                elif v is None:
+                    items.append(f'<item key="{i}"></item>')
                 else:
-                    items.append(f'<item key="{i}">{v}</item>')
+                    items.append(f'<item key="{i}">{escape(str(v))}</item>')
             return f"<dt_array>{' '.join(items)}</dt_array>"
 
         items = []
         for key, value in d.items():
+            attr_key = quoteattr(str(key))
             if isinstance(value, (dict, list)):
-                items.append(f'<item key="{key}">{self._dict_to_xml(value)}</item>')
+                items.append(f'<item key={attr_key}>{self._dict_to_xml(value)}</item>')
+            elif value is None:
+                items.append(f'<item key={attr_key}></item>')
             else:
-                items.append(f'<item key="{key}">{value}</item>')
+                items.append(f'<item key={attr_key}>{escape(str(value))}</item>')
         return f"<dt_assoc>{' '.join(items)}</dt_assoc>"
 
     def _build_envelope(self, action: str, obj: str, attrs: dict) -> str:
@@ -228,10 +235,10 @@ class OpenSRSClient:
             "reg_type": "new",
             "handle": "process",
             "custom_nameservers": "1",
-            "custom_tech_contact": "0",
+            "custom_tech_contact": "1",
             "f_lock_domain": "1",
             "f_whois_privacy": "1",
-            "auto_renew": "1",
+            "auto_renew": "0",
             "nameserver_list": ns_list,
             "contact_set": contact_set,
         }
@@ -246,17 +253,20 @@ class OpenSRSClient:
             "expiry": attrs_data.get("registration_expiration_date", ""),
         }
 
-    def renew_domain(self, domain: str, years: int = 1) -> dict:
+    def renew_domain(self, domain: str, current_expiry_year: int, years: int = 1) -> dict:
         """Renew a domain for additional years.
+
+        current_expiry_year is required by OpenSRS to prevent duplicate
+        renewals. Pass the year the domain currently expires (e.g. 2027).
 
         Returns dict with order_id, new expiry date, and admin email.
         """
-        # OpenSRS requires the current expiry year to prevent duplicate renewals
         attrs = {
             "domain": domain,
             "period": str(years),
             "handle": "process",
-            "auto_renew": "1",
+            "auto_renew": "0",
+            "currentexpirationyear": str(current_expiry_year),
         }
 
         xml_body = self._build_envelope("RENEW", "DOMAIN", attrs)
