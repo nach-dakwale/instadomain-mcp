@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
 
@@ -37,7 +36,6 @@ async def create_order(
 ) -> dict:
     """Insert a new order and return it as a dict."""
     order_id = f"ord_{uuid.uuid4().hex}"
-    contact_json = json.dumps(registrant_contact) if registrant_contact else None
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
@@ -53,7 +51,7 @@ async def create_order(
             wholesale_cents,
             stripe_session_id,
             payment_method,
-            contact_json,
+            registrant_contact,
         )
     return _row_to_dict(row)
 
@@ -68,60 +66,88 @@ async def get_order(pool: asyncpg.Pool, order_id: str) -> dict | None:
 async def get_order_by_stripe_session(
     pool: asyncpg.Pool, stripe_session_id: str
 ) -> dict | None:
-    """Fetch an order by its Stripe session ID."""
+    """Fetch an order by its Stripe session ID or renewal session ID."""
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT * FROM orders WHERE stripe_session_id = $1", stripe_session_id
+            "SELECT * FROM orders "
+            "WHERE stripe_session_id = $1 OR renewal_stripe_session_id = $1",
+            stripe_session_id,
         )
     return _row_to_dict(row)
+
+
+def _valid_source_statuses(new_status: str) -> list[str]:
+    """Return the list of statuses that are allowed to transition to new_status."""
+    return [src for src, targets in TRANSITIONS.items() if new_status in targets]
 
 
 async def update_order_status(
     pool: asyncpg.Pool, order_id: str, new_status: str, **fields
 ) -> dict:
-    """Transition an order to a new status, with optional field updates.
+    """Atomically transition an order to a new status, with optional field updates.
 
-    Validates the transition against the state machine. Sets completed_at
-    when transitioning to 'complete'. Always updates updated_at.
+    Uses a single UPDATE with a WHERE clause that checks both the order ID and
+    that the current status is a valid source for the requested transition.
+    This prevents race conditions where two concurrent callers both pass the
+    state check and proceed with duplicate work.
 
     Raises:
-        ValueError: If the transition is not allowed.
-        ValueError: If the order does not exist.
+        ValueError: If the order does not exist or the transition is not valid
+                    from the current status.
     """
-    async with pool.acquire() as conn:
-        current = await conn.fetchval(
-            "SELECT status FROM orders WHERE id = $1", order_id
+    valid_sources = _valid_source_statuses(new_status)
+    if not valid_sources:
+        raise ValueError(
+            f"No status can transition to '{new_status}'"
         )
-        if current is None:
-            raise ValueError(f"Order {order_id} not found")
 
-        allowed = TRANSITIONS.get(current, set())
-        if new_status not in allowed:
-            raise ValueError(
-                f"Invalid transition: {current} -> {new_status}. "
-                f"Allowed: {allowed or 'none (terminal state)'}"
-            )
+    now = datetime.now(timezone.utc)
+    fields["status"] = new_status
+    fields["updated_at"] = now
+    if new_status == "complete":
+        fields["completed_at"] = now
 
-        now = datetime.now(timezone.utc)
-        fields["status"] = new_status
-        fields["updated_at"] = now
-        if new_status == "complete":
-            fields["completed_at"] = now
+    # Build dynamic SET clause
+    set_parts = []
+    values = []
+    for i, (col, val) in enumerate(fields.items(), start=1):
+        set_parts.append(f"{col} = ${i}")
+        values.append(val)
 
-        # Build dynamic SET clause
-        set_parts = []
-        values = []
-        for i, (col, val) in enumerate(fields.items(), start=1):
-            set_parts.append(f"{col} = ${i}")
-            values.append(val)
+    # $N+1 = order_id, $N+2 = valid source statuses array
+    values.append(order_id)
+    id_param = f"${len(values)}"
+    values.append(valid_sources)
+    sources_param = f"${len(values)}"
 
-        values.append(order_id)
-        id_param = f"${len(values)}"
-
-        query = f"UPDATE orders SET {', '.join(set_parts)} WHERE id = {id_param} RETURNING *"
+    query = (
+        f"UPDATE orders SET {', '.join(set_parts)} "
+        f"WHERE id = {id_param} AND status = ANY({sources_param}::text[]) "
+        f"RETURNING *"
+    )
+    async with pool.acquire() as conn:
         row = await conn.fetchrow(query, *values)
 
+    if row is None:
+        raise ValueError(
+            f"Transition to '{new_status}' failed for order {order_id}: "
+            f"order not found or current status not in {valid_sources}"
+        )
+
     return _row_to_dict(row)
+
+
+async def get_stuck_dns_orders(pool: asyncpg.Pool) -> list[dict]:
+    """Fetch all orders stuck in dns_pending or setting_dns status.
+
+    Used at startup to recover orders whose in-memory retry tasks were lost.
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM orders WHERE status IN ('dns_pending', 'setting_dns') "
+            "ORDER BY updated_at ASC"
+        )
+    return [dict(row) for row in rows]
 
 
 async def get_pending_x402_order(pool: asyncpg.Pool, order_id: str) -> dict | None:
@@ -141,6 +167,7 @@ async def get_expiring_orders(pool: asyncpg.Pool, days: int = 90) -> list[dict]:
         rows = await conn.fetch(
             "SELECT * FROM orders WHERE status = 'complete' "
             "AND domain_expires_at IS NOT NULL "
+            "AND domain_expires_at > now() "
             "AND domain_expires_at <= now() + make_interval(days => $1) "
             "ORDER BY domain_expires_at ASC",
             days,
