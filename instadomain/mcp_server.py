@@ -1,11 +1,14 @@
 """InstaDomain MCP server -- thin HTTP client over the backend API.
 
 Tools:
-  - check_domain      : check availability + price for a single domain
-  - check_domains_bulk: check up to 50 domains at once (RDAP, no pricing)
-  - suggest_domains   : generate + check domain name ideas for a keyword
-  - buy_domain        : initiate purchase via Stripe checkout
-  - get_domain_status : poll order status until complete or failed
+  - check_domain       : check availability + price for a single domain
+  - check_domains_bulk : check up to 50 domains at once (RDAP, no pricing)
+  - suggest_domains    : generate + check domain name ideas for a keyword
+  - buy_domain         : initiate purchase via Stripe checkout
+  - buy_domain_crypto  : initiate purchase via x402 USDC payment
+  - get_domain_status  : poll order status until complete or failed
+  - get_transfer_code  : get EPP auth code for transferring a domain away
+  - unlock_domain      : remove registrar transfer lock from a domain
 """
 from __future__ import annotations
 
@@ -58,13 +61,29 @@ async def check_domain(domain: str) -> dict:
 
 
 @mcp.tool()
-async def buy_domain(domain: str) -> dict:
-    """Start the purchase flow for an available domain.
+async def buy_domain(
+    domain: str,
+    first_name: str,
+    last_name: str,
+    email: str,
+    address1: str,
+    city: str,
+    state: str,
+    postal_code: str,
+    country: str,
+    phone: str,
+    org_name: str = "",
+) -> dict:
+    """Start the purchase flow for an available domain via Stripe checkout.
 
     IMPORTANT: Before calling this tool, you MUST first call check_domain
     to get the price, then clearly show the user the price and get their
     explicit confirmation before proceeding. Never call buy_domain without
     the user seeing and approving the price first.
+
+    The registrant contact details are required because the domain will be
+    registered in the buyer's name (they become the legal owner). WHOIS
+    privacy is enabled by default, so these details are not publicly visible.
 
     Creates a Stripe checkout session. Returns a checkout URL that the
     user should open in their browser to complete payment securely via
@@ -72,20 +91,57 @@ async def buy_domain(domain: str) -> dict:
 
     Args:
         domain: The domain to purchase (e.g. "coolstartup.com").
+        first_name: Registrant's first name.
+        last_name: Registrant's last name.
+        email: Registrant's email address.
+        address1: Registrant's street address.
+        city: Registrant's city.
+        state: Registrant's state or province.
+        postal_code: Registrant's postal/zip code.
+        country: 2-letter ISO country code (e.g. "US", "GB", "DE").
+        phone: Phone number in format +1.5551234567.
+        org_name: Organization name (optional, leave empty for individuals).
 
     Returns:
         Dict with order_id, checkout_url, price_cents, and price_display.
     """
+    payload = {
+        "domain": domain,
+        "registrant": {
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "org_name": org_name,
+            "address1": address1,
+            "city": city,
+            "state": state,
+            "postal_code": postal_code,
+            "country": country,
+            "phone": phone,
+        },
+    }
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
-        resp = await client.post("/buy", json={"domain": domain})
+        resp = await client.post("/buy", json=payload)
         if resp.status_code == 400:
-            return resp.json()  # domain not available — return error gracefully
+            return resp.json()
         resp.raise_for_status()
         return resp.json()
 
 
 @mcp.tool()
-async def buy_domain_crypto(domain: str) -> dict:
+async def buy_domain_crypto(
+    domain: str,
+    first_name: str,
+    last_name: str,
+    email: str,
+    address1: str,
+    city: str,
+    state: str,
+    postal_code: str,
+    country: str,
+    phone: str,
+    org_name: str = "",
+) -> dict:
     """Start the purchase flow for a domain using USDC crypto payment (x402 protocol).
 
     This is a 2-step process for autonomous agent payments:
@@ -100,18 +156,47 @@ async def buy_domain_crypto(domain: str) -> dict:
 
     Requires: An x402-compatible HTTP client with a funded USDC wallet on Base.
 
+    The registrant contact details are required because the domain will be
+    registered in the buyer's name (they become the legal owner). WHOIS
+    privacy is enabled by default, so these details are not publicly visible.
+
     IMPORTANT: Before calling this tool, you MUST first call check_domain
     to get the price and confirm it with the user.
 
     Args:
         domain: The domain to purchase (e.g. "coolstartup.com").
+        first_name: Registrant's first name.
+        last_name: Registrant's last name.
+        email: Registrant's email address.
+        address1: Registrant's street address.
+        city: Registrant's city.
+        state: Registrant's state or province.
+        postal_code: Registrant's postal/zip code.
+        country: 2-letter ISO country code (e.g. "US", "GB", "DE").
+        phone: Phone number in format +1.5551234567.
+        org_name: Organization name (optional, leave empty for individuals).
 
     Returns:
         Dict with order_id, pay_url (full URL to GET with x402 client),
         price_usdc, price_cents, network, and asset contract address.
     """
+    payload = {
+        "domain": domain,
+        "registrant": {
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "org_name": org_name,
+            "address1": address1,
+            "city": city,
+            "state": state,
+            "postal_code": postal_code,
+            "country": country,
+            "phone": phone,
+        },
+    }
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
-        resp = await client.post("/buy/crypto", json={"domain": domain})
+        resp = await client.post("/buy/crypto", json=payload)
         if resp.status_code in {400, 503}:
             return resp.json()
         resp.raise_for_status()
@@ -156,6 +241,76 @@ async def get_domain_status(order_id: str) -> dict:
                 return data
 
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+
+@mcp.tool()
+async def get_transfer_code(order_id: str) -> dict:
+    """Get the EPP/transfer authorization code for a completed domain purchase.
+
+    Use this when the domain owner wants to transfer their domain to another
+    registrar. The order must be in "complete" status. The auth code is
+    required by the receiving registrar to authorize the transfer.
+
+    Args:
+        order_id: The order ID of a completed domain purchase.
+
+    Returns:
+        Dict with order_id, domain, and auth_code.
+    """
+    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
+        resp = await client.get(f"/transfer-code/{order_id}")
+        if resp.status_code in {400, 404}:
+            return resp.json()
+        resp.raise_for_status()
+        return resp.json()
+
+
+@mcp.tool()
+async def unlock_domain(order_id: str) -> dict:
+    """Remove the registrar transfer lock from a completed domain purchase.
+
+    Domains are locked by default to prevent unauthorized transfers. Call
+    this before initiating a transfer to another registrar. The order must
+    be in "complete" status.
+
+    Args:
+        order_id: The order ID of a completed domain purchase.
+
+    Returns:
+        Dict with order_id, domain, and unlocked status.
+    """
+    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
+        resp = await client.post(f"/unlock/{order_id}")
+        if resp.status_code in {400, 404}:
+            return resp.json()
+        resp.raise_for_status()
+        return resp.json()
+
+
+@mcp.tool()
+async def renew_domain(order_id: str) -> dict:
+    """Renew a domain for 1 additional year.
+
+    Creates a Stripe checkout session for the renewal payment. The user
+    must open the checkout URL to complete payment, after which the domain
+    will be renewed automatically via the registrar.
+
+    The order must be in "complete" status (i.e., the domain was
+    previously registered successfully).
+
+    Args:
+        order_id: The order ID of a completed domain purchase (e.g. "ord_abc123").
+
+    Returns:
+        Dict with order_id, checkout_url, price_cents, price_display, domain,
+        and renewal_years.
+    """
+    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
+        resp = await client.post(f"/renew/{order_id}")
+        if resp.status_code in {400, 404}:
+            return resp.json()
+        resp.raise_for_status()
+        return resp.json()
 
 
 @mcp.tool()
