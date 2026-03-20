@@ -4,10 +4,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Header, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -22,9 +24,11 @@ from instadomain.opensrs_client import OpenSRSClient
 from instadomain.cloudflare_client import CloudflareClient
 from instadomain.orders import (
     create_order,
+    get_expiring_orders,
     get_order,
     get_order_by_stripe_session,
     get_pending_x402_order,
+    update_domain_expiry,
     update_order_status,
     update_x402_settlement,
 )
@@ -117,8 +121,22 @@ class BulkCheckRequest(BaseModel):
         return v
 
 
+class RegistrantContact(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    org_name: str = ""
+    address1: str
+    city: str
+    state: str
+    postal_code: str
+    country: str  # 2-letter ISO code
+    phone: str  # format: +1.5551234567
+
+
 class BuyRequest(BaseModel):
     domain: str
+    registrant: RegistrantContact
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +328,7 @@ def create_app() -> FastAPI:
             amount_cents=retail_cents,
             wholesale_cents=wholesale_cents,
             stripe_session_id=None,
+            registrant_contact=body.registrant.model_dump(),
         )
 
         # Create Stripe checkout session (sync SDK — run in thread)
@@ -396,6 +415,29 @@ def create_app() -> FastAPI:
             logger.warning("Webhook: no order found for session %s", session_id)
             return {"received": True}
 
+        # Handle renewal payments: order is already "complete"
+        if order["status"] == "complete":
+            logger.info("Webhook: processing renewal for order %s", order["id"])
+            domain = f"{order['domain']}.{order['tld']}"
+            opensrs = request.app.state.opensrs
+            try:
+                renew_result = await asyncio.to_thread(
+                    opensrs.renew_domain, domain, 1
+                )
+                expiry_str = renew_result.get("expiry")
+                if expiry_str:
+                    try:
+                        expiry_dt = datetime.fromisoformat(expiry_str).replace(
+                            tzinfo=timezone.utc
+                        )
+                        await update_domain_expiry(pool, order["id"], expiry_dt)
+                    except (ValueError, TypeError):
+                        logger.warning("Could not parse renewal expiry: %s", expiry_str)
+                logger.info("Renewal successful for %s", domain)
+            except Exception as exc:
+                logger.error("Renewal failed for %s: %s", domain, exc)
+            return {"received": True, "order_id": order["id"], "renewal": True}
+
         # Idempotency: skip if already past pending_payment
         if order["status"] != "pending_payment":
             logger.info("Webhook: order %s already in status %s, skipping", order["id"], order["status"])
@@ -424,6 +466,98 @@ def create_app() -> FastAPI:
         )
 
         return {"received": True, "order_id": order["id"]}
+
+    # ------------------------------------------------------------------
+    # Renewal endpoints
+    # ------------------------------------------------------------------
+
+    @app.post("/renew/{order_id}")
+    @app_limiter.limit("5/minute")
+    async def renew_domain(order_id: str, request: Request):
+        """Create a Stripe checkout session to renew a domain for 1 year."""
+        pool = request.app.state.pool
+        order = await get_order(pool, order_id)
+        if order is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+        if order["status"] != "complete":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Order must be in 'complete' status to renew (current: {order['status']})",
+            )
+
+        domain = f"{order['domain']}.{order['tld']}"
+        opensrs = request.app.state.opensrs
+
+        # Get the current renewal price from OpenSRS
+        try:
+            wholesale_cents = await _get_price(domain, opensrs)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Price lookup failed: {exc}")
+
+        tld = order["tld"]
+        retail_cents = calculate_retail_cents(wholesale_cents, tld)
+
+        # Create Stripe checkout session for the renewal
+        try:
+            checkout = await asyncio.to_thread(
+                create_checkout_session, f"{domain} (renewal)", retail_cents, order_id
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Payment setup failed: {exc}")
+
+        # Store the renewal session ID so the webhook can process it
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE orders SET stripe_session_id = $1, updated_at = now() WHERE id = $2",
+                checkout["session_id"],
+                order_id,
+            )
+
+        return {
+            "order_id": order_id,
+            "checkout_url": checkout["checkout_url"],
+            "price_cents": retail_cents,
+            "price_display": format_price(retail_cents),
+            "domain": domain,
+            "renewal_years": 1,
+        }
+
+    @app.get("/expiring")
+    async def get_expiring(
+        request: Request,
+        days: int = Query(default=90, ge=1, le=365),
+        x_api_key: str | None = Header(default=None),
+    ):
+        """Return all orders with domains expiring within the given days.
+
+        Requires INSTADOMAIN_ADMIN_KEY for authentication.
+        """
+        admin_key = os.environ.get("INSTADOMAIN_ADMIN_KEY", "")
+        if not admin_key or x_api_key != admin_key:
+            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+        pool = request.app.state.pool
+        orders = await get_expiring_orders(pool, days)
+        settings = Settings()
+
+        results = []
+        for order in orders:
+            domain = f"{order['domain']}.{order['tld']}"
+            expires_at = order.get("domain_expires_at")
+            days_remaining = None
+            if expires_at:
+                delta = expires_at - datetime.now(timezone.utc)
+                days_remaining = max(0, delta.days)
+            results.append({
+                "order_id": order["id"],
+                "domain": domain,
+                "email": order.get("email"),
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "days_remaining": days_remaining,
+                "renewal_url": f"{settings.backend_url}/renew/{order['id']}",
+            })
+
+        return {"count": len(results), "orders": results}
 
     # ------------------------------------------------------------------
     # x402 crypto payment endpoints
@@ -492,6 +626,7 @@ def create_app() -> FastAPI:
             amount_cents=retail_cents,
             wholesale_cents=wholesale_cents,
             payment_method="x402",
+            registrant_contact=body.registrant.model_dump(),
         )
 
         # Convert cents to USDC (6 decimals, 1:1 with USD)
@@ -608,5 +743,65 @@ def create_app() -> FastAPI:
             headers["X-PAYMENT-RESPONSE"] = settle_result.model_dump_json()
 
         return JSONResponse(content=response_body, headers=headers)
+
+    # ------------------------------------------------------------------
+    # Domain management endpoints
+    # ------------------------------------------------------------------
+
+    @app.get("/transfer-code/{order_id}")
+    @app_limiter.limit("5/minute")
+    async def get_transfer_code(order_id: str, request: Request):
+        """Get the EPP/transfer authorization code for a completed domain order."""
+        pool = request.app.state.pool
+        opensrs = request.app.state.opensrs
+
+        order = await get_order(pool, order_id)
+        if order is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+        if order["status"] != "complete":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Order is in status '{order['status']}', must be 'complete' to get transfer code",
+            )
+
+        domain = f"{order['domain']}.{order['tld']}"
+        try:
+            auth_code = await asyncio.to_thread(opensrs.get_transfer_auth_code, domain)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to get transfer code: {exc}")
+
+        return {
+            "order_id": order_id,
+            "domain": domain,
+            "auth_code": auth_code,
+        }
+
+    @app.post("/unlock/{order_id}")
+    @app_limiter.limit("5/minute")
+    async def unlock_domain(order_id: str, request: Request):
+        """Remove the registrar transfer lock from a completed domain order."""
+        pool = request.app.state.pool
+        opensrs = request.app.state.opensrs
+
+        order = await get_order(pool, order_id)
+        if order is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+        if order["status"] != "complete":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Order is in status '{order['status']}', must be 'complete' to unlock",
+            )
+
+        domain = f"{order['domain']}.{order['tld']}"
+        try:
+            await asyncio.to_thread(opensrs.unlock_domain, domain)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to unlock domain: {exc}")
+
+        return {
+            "order_id": order_id,
+            "domain": domain,
+            "unlocked": True,
+        }
 
     return app
