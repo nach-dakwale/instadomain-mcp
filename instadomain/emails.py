@@ -72,6 +72,33 @@ async def send_purchase_success_email(
     )
 
 
+async def send_expiration_reminder_email(
+    *,
+    to_email: str | None,
+    domain: str,
+    expires_at: str,
+    days_remaining: int,
+    renewal_url: str,
+) -> None:
+    """Send a domain expiration reminder email."""
+    body = (
+        f"Your domain {domain} expires on {expires_at} "
+        f"({days_remaining} days from now).\n\n"
+        "Auto-renewal is enabled, but if your payment method is outdated "
+        "or you need to renew manually, use this link:\n\n"
+        f"{renewal_url}\n\n"
+        "If the domain expires and is not renewed, it may become available "
+        "for anyone to register. Please make sure your payment details "
+        "are up to date."
+    )
+    await asyncio.to_thread(
+        _send_email_sync,
+        to_email=to_email,
+        subject=f"InstaDomain: {domain} expires in {days_remaining} days",
+        body=body,
+    )
+
+
 ALERT_EMAIL = os.environ.get("ALERT_EMAIL", "nach@nachdakwale.com")
 
 
