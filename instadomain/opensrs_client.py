@@ -154,6 +154,18 @@ class OpenSRSClient:
         }
         return httpx.post(self.api_url, content=xml_body, headers=headers)
 
+    def check_availability(self, domain: str) -> bool:
+        """Check if a domain is available for registration via OpenSRS LOOKUP.
+
+        Returns True if the domain is available, False otherwise.
+        """
+        attrs = {"domain": domain}
+        xml_body = self._build_envelope("LOOKUP", "DOMAIN", attrs)
+        response = self._post(xml_body)
+        data = self._parse_response(response.text)
+        attrs_data = data.get("attributes", {})
+        return attrs_data.get("status") == "available"
+
     def get_price(self, domain: str) -> int:
         """Look up the wholesale registration price for a domain.
 
