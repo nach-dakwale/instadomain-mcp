@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 from instadomain import fulfillment as fulfillment_module
 
@@ -16,6 +17,7 @@ def test_fulfillment_marks_dns_pending_when_zone_creation_fails(monkeypatch):
         "retry_count": 0,
         "cloudflare_zone_id": None,
         "nameservers": None,
+        "cloudflare_api_token": None,
         "registrant_contact": {
             "first_name": "Test",
             "last_name": "User",
@@ -42,19 +44,21 @@ def test_fulfillment_marks_dns_pending_when_zone_creation_fails(monkeypatch):
         status_updates.append((new_status, fields))
         return dict(order_store)
 
-    async def fake_increment_retry_count(_pool, _order_id):
-        order_store["retry_count"] += 1
-        return order_store["retry_count"]
-
     def fake_schedule_dns_retry(**kwargs):
         scheduled_retries.append(kwargs["retry_count"])
 
     async def fake_send_purchase_success_email(**_kwargs):
         raise AssertionError("success email should not be sent on dns_pending")
 
+    # Mock pool.acquire() for the retry_count SELECT in _mark_dns_pending
+    mock_conn = AsyncMock()
+    mock_conn.fetchval = AsyncMock(return_value=0)
+    mock_pool = MagicMock()
+    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
     monkeypatch.setattr(fulfillment_module, "get_order", fake_get_order)
     monkeypatch.setattr(fulfillment_module, "update_order_status", fake_update_order_status)
-    monkeypatch.setattr(fulfillment_module, "_increment_retry_count", fake_increment_retry_count)
     monkeypatch.setattr(fulfillment_module, "_schedule_dns_retry", fake_schedule_dns_retry)
     monkeypatch.setattr(fulfillment_module, "issue_refund", lambda payment_intent: refunds.append(payment_intent))
     monkeypatch.setattr(fulfillment_module, "send_purchase_success_email", fake_send_purchase_success_email)
@@ -70,9 +74,12 @@ def test_fulfillment_marks_dns_pending_when_zone_creation_fails(monkeypatch):
         async def create_zone(self, _domain):
             raise RuntimeError("cf unavailable")
 
+        async def get_zone_by_name(self, _domain):
+            return None
+
     result = asyncio.run(
         fulfillment_module.fulfill_order(
-            pool=object(),
+            pool=mock_pool,
             order_id="ord_dns",
             opensrs=OpenSRS(),
             cloudflare=FailingCloudflare(),

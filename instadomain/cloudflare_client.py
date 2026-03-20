@@ -31,6 +31,25 @@ class CloudflareClient:
                 msg = "Unknown Cloudflare API error"
             raise CloudflareError(msg)
 
+    async def get_zone_by_name(self, domain: str) -> dict | None:
+        """Look up an existing zone by domain name.
+
+        Returns dict with zone_id and nameservers if found, None otherwise.
+        """
+        resp = await self._client.get("/zones", params={"name": domain})
+        data = resp.json()
+        self._raise_on_error(data)
+
+        results = data.get("result", [])
+        if not results:
+            return None
+
+        zone = results[0]
+        return {
+            "zone_id": zone["id"],
+            "nameservers": zone["name_servers"],
+        }
+
     async def create_zone(self, domain: str) -> dict:
         """Create a DNS zone for a domain.
 
