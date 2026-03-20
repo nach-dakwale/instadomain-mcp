@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -703,28 +704,43 @@ def create_app() -> FastAPI:
         if matched is None:
             raise HTTPException(status_code=400, detail="Payment does not match requirements")
 
-        verify_result = rs.verify_payment(payload, matched)
+        verify_result = await rs.verify_payment(payload, matched)
         if not verify_result.is_valid:
             raise HTTPException(
                 status_code=402,
                 detail=f"Payment verification failed: {verify_result.invalid_message}",
             )
 
-        # Payment verified: transition order to registering
-        try:
-            await update_order_status(pool, order_id, "registering")
-        except ValueError as exc:
-            raise HTTPException(status_code=409, detail=str(exc))
+        # Settle the payment on-chain (before transitioning order state)
+        settle_result = await rs.settle_payment(payload, matched)
+        if not settle_result.success:
+            await update_order_status(
+                pool, order_id, "failed",
+                error_msg=f"Settlement failed: {getattr(settle_result, 'error', 'unknown')}",
+            )
+            raise HTTPException(
+                status_code=402,
+                detail=f"Payment settlement failed: {getattr(settle_result, 'error', 'unknown')}",
+            )
 
-        # Settle the payment on-chain
-        settle_result = rs.settle_payment(payload, matched)
-        if settle_result.success and settle_result.transaction:
+        # Settlement succeeded: store on-chain data
+        if settle_result.transaction:
+            payer_address = (
+                getattr(settle_result, "payer", None)
+                or getattr(verify_result, "payer", None)
+            )
             await update_x402_settlement(
                 pool,
                 order_id,
                 settle_result.transaction,
-                payer_address=getattr(settle_result, "payer", None),
+                payer_address=payer_address,
             )
+
+        # Now transition to registering (payment is confirmed on-chain)
+        try:
+            await update_order_status(pool, order_id, "registering")
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
 
         # Kick off fulfillment (same path as Stripe webhook)
         asyncio.create_task(
@@ -738,9 +754,7 @@ def create_app() -> FastAPI:
         )
 
         response_body = {"status": "paid", "order_id": order_id}
-        headers = {}
-        if settle_result.success:
-            headers["X-PAYMENT-RESPONSE"] = settle_result.model_dump_json()
+        headers = {"X-PAYMENT-RESPONSE": settle_result.model_dump_json()}
 
         return JSONResponse(content=response_body, headers=headers)
 
