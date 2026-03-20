@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -23,7 +24,9 @@ from instadomain.orders import (
     create_order,
     get_order,
     get_order_by_stripe_session,
+    get_pending_x402_order,
     update_order_status,
+    update_x402_settlement,
 )
 from instadomain.pricing import calculate_retail_cents, format_price
 from instadomain.stripe_handler import (
@@ -146,6 +149,20 @@ def create_app() -> FastAPI:
             account_id=settings.cloudflare_account_id,
         )
         app.state.encryption_key = settings.encryption_key
+
+        # x402 crypto payments: only enabled when wallet address is configured
+        app.state.x402_enabled = False
+        if settings.x402_wallet_address:
+            from x402 import FacilitatorClient, x402ResourceServer
+            facilitator = FacilitatorClient(url=settings.x402_facilitator_url)
+            resource_server = x402ResourceServer(facilitator_clients=[facilitator])
+            resource_server.initialize()
+            app.state.x402_resource_server = resource_server
+            app.state.x402_wallet = settings.x402_wallet_address
+            app.state.x402_network = settings.x402_network
+            app.state.x402_enabled = True
+            logger.info("x402 crypto payments enabled (wallet=%s)", settings.x402_wallet_address[:10] + "...")
+
         async with mcp_http_app.lifespan(mcp_http_app):
             yield
         await app.state.cloudflare.close()
@@ -418,5 +435,147 @@ def create_app() -> FastAPI:
         )
 
         return {"received": True, "order_id": order["id"]}
+
+    # ------------------------------------------------------------------
+    # x402 crypto payment endpoints
+    # ------------------------------------------------------------------
+
+    # USDC on Base mainnet
+    _USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+
+    @app.post("/buy/crypto")
+    @app_limiter.limit("5/minute")
+    async def buy_domain_crypto(body: BuyRequest, request: Request):
+        """Create an x402 order. Returns a pay_url the agent hits to pay via HTTP 402."""
+        if not request.app.state.x402_enabled:
+            raise HTTPException(status_code=503, detail="Crypto payments not configured")
+
+        domain = body.domain.strip().lower()
+
+        result = await _check_availability(domain)
+        if not result["available"]:
+            raise HTTPException(status_code=400, detail=f"Domain {domain} is not available")
+
+        pool = request.app.state.pool
+        opensrs = request.app.state.opensrs
+        try:
+            wholesale_cents = await _get_price(domain, opensrs)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Price lookup failed: {exc}")
+
+        tld = domain.rsplit(".", 1)[-1] if "." in domain else "com"
+        retail_cents = calculate_retail_cents(wholesale_cents, tld)
+
+        order = await create_order(
+            pool,
+            domain=domain.rsplit(".", 1)[0] if "." in domain else domain,
+            tld=tld,
+            amount_cents=retail_cents,
+            wholesale_cents=wholesale_cents,
+            payment_method="x402",
+        )
+
+        # Convert cents to USDC (6 decimals, 1:1 with USD)
+        price_usdc = f"{retail_cents / 100:.2f}"
+
+        settings = Settings()
+        return {
+            "order_id": order["id"],
+            "pay_url": f"/pay/{order['id']}",
+            "price_usdc": price_usdc,
+            "price_cents": retail_cents,
+            "price_display": format_price(retail_cents),
+            "network": settings.x402_network,
+            "asset": _USDC_BASE,
+        }
+
+    @app.get("/pay/{order_id}")
+    async def pay_x402(order_id: str, request: Request):
+        """x402-paywalled endpoint. Agents pay by including X-PAYMENT header."""
+        if not request.app.state.x402_enabled:
+            raise HTTPException(status_code=503, detail="Crypto payments not configured")
+
+        pool = request.app.state.pool
+        rs = request.app.state.x402_resource_server
+
+        # Look up the pending order
+        order = await get_pending_x402_order(pool, order_id)
+        if order is None:
+            # Check if it exists at all
+            existing = await get_order(pool, order_id)
+            if existing is None:
+                raise HTTPException(status_code=404, detail="Order not found")
+            if existing.get("payment_method") != "x402":
+                raise HTTPException(status_code=400, detail="Not an x402 order")
+            raise HTTPException(status_code=409, detail="Order already paid or expired")
+
+        # Build payment requirements for this order's exact price
+        from x402 import ResourceConfig
+        price_usd = f"{order['amount_cents'] / 100:.2f}"
+        config = ResourceConfig(
+            scheme="exact",
+            pay_to=request.app.state.x402_wallet,
+            price=price_usd,
+            network=request.app.state.x402_network,
+        )
+        requirements_list = rs.build_payment_requirements(config)
+
+        # If no X-PAYMENT header, return 402 with payment requirements
+        payment_header = request.headers.get("x-payment")
+        if not payment_header:
+            pay_required = rs.create_payment_required_response(requirements_list)
+            return JSONResponse(
+                status_code=402,
+                content=pay_required.model_dump(),
+                headers={"X-PAYMENT-REQUIREMENTS": pay_required.model_dump_json()},
+            )
+
+        # Parse and verify the payment
+        from x402 import parse_payment_payload
+        try:
+            payload = parse_payment_payload(json.loads(payment_header))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid payment payload: {exc}")
+
+        # Find matching requirements for this payment
+        matched = rs.find_matching_requirements(requirements_list, payload)
+        if matched is None:
+            raise HTTPException(status_code=400, detail="Payment does not match requirements")
+
+        verify_result = rs.verify_payment(payload, matched)
+        if not verify_result.is_valid:
+            raise HTTPException(
+                status_code=402,
+                detail=f"Payment verification failed: {verify_result.invalid_message}",
+            )
+
+        # Payment verified: transition order to registering
+        try:
+            await update_order_status(pool, order_id, "registering")
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+
+        # Settle the payment on-chain
+        settle_result = rs.settle_payment(payload, matched)
+        if settle_result.success and settle_result.transaction:
+            await update_x402_settlement(pool, order_id, settle_result.transaction)
+
+        # Kick off fulfillment (same path as Stripe webhook)
+        asyncio.create_task(
+            fulfill_order(
+                pool=pool,
+                order_id=order_id,
+                opensrs=request.app.state.opensrs,
+                cloudflare=request.app.state.cloudflare,
+                encryption_key=request.app.state.encryption_key,
+            )
+        )
+
+        response_body = {"status": "paid", "order_id": order_id}
+        headers = {}
+        if settle_result.success:
+            headers["X-PAYMENT-RESPONSE"] = settle_result.model_dump_json()
+
+        return JSONResponse(content=response_body, headers=headers)
 
     return app

@@ -28,16 +28,18 @@ async def create_order(
     domain: str,
     tld: str,
     amount_cents: int,
-    stripe_session_id: str,
+    stripe_session_id: str | None = None,
     wholesale_cents: int | None = None,
+    payment_method: str = "stripe",
 ) -> dict:
     """Insert a new order and return it as a dict."""
     order_id = f"ord_{uuid.uuid4().hex}"
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            INSERT INTO orders (id, domain, tld, amount_cents, wholesale_cents, stripe_session_id)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO orders (id, domain, tld, amount_cents, wholesale_cents,
+                                stripe_session_id, payment_method)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *
             """,
             order_id,
@@ -46,6 +48,7 @@ async def create_order(
             amount_cents,
             wholesale_cents,
             stripe_session_id,
+            payment_method,
         )
     return _row_to_dict(row)
 
@@ -113,4 +116,31 @@ async def update_order_status(
         query = f"UPDATE orders SET {', '.join(set_parts)} WHERE id = {id_param} RETURNING *"
         row = await conn.fetchrow(query, *values)
 
+    return _row_to_dict(row)
+
+
+async def get_pending_x402_order(pool: asyncpg.Pool, order_id: str) -> dict | None:
+    """Fetch an x402 order that is still awaiting payment."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM orders WHERE id = $1 AND payment_method = 'x402' "
+            "AND status = 'pending_payment'",
+            order_id,
+        )
+    return _row_to_dict(row)
+
+
+async def update_x402_settlement(
+    pool: asyncpg.Pool, order_id: str, tx_hash: str
+) -> dict:
+    """Record the on-chain transaction hash for an x402 payment."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "UPDATE orders SET x402_tx_hash = $1, updated_at = now() "
+            "WHERE id = $2 RETURNING *",
+            tx_hash,
+            order_id,
+        )
+    if row is None:
+        raise ValueError(f"Order {order_id} not found")
     return _row_to_dict(row)

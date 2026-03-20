@@ -85,6 +85,43 @@ async def buy_domain(domain: str) -> dict:
 
 
 @mcp.tool()
+async def buy_domain_crypto(domain: str) -> dict:
+    """Start the purchase flow for a domain using USDC crypto payment (x402 protocol).
+
+    This is a 2-step process for autonomous agent payments:
+
+    Step 1: Call this tool to get an order_id and pay_url.
+    Step 2: Make an HTTP GET request to the pay_url. Your x402-enabled HTTP
+    client will receive an HTTP 402 response with payment requirements, then
+    automatically pay with USDC on Base. The payment and settlement happen
+    via the x402 protocol (no browser or human needed).
+
+    After payment, call get_domain_status(order_id) to poll until complete.
+
+    Requires: An x402-compatible HTTP client with a funded USDC wallet on Base.
+
+    IMPORTANT: Before calling this tool, you MUST first call check_domain
+    to get the price and confirm it with the user.
+
+    Args:
+        domain: The domain to purchase (e.g. "coolstartup.com").
+
+    Returns:
+        Dict with order_id, pay_url (full URL to GET with x402 client),
+        price_usdc, price_cents, network, and asset contract address.
+    """
+    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
+        resp = await client.post("/buy/crypto", json={"domain": domain})
+        if resp.status_code == 400:
+            return resp.json()
+        resp.raise_for_status()
+        data = resp.json()
+        # Make pay_url absolute so the agent can hit it directly
+        data["pay_url"] = f"{BACKEND_URL}{data['pay_url']}"
+        return data
+
+
+@mcp.tool()
 async def get_domain_status(order_id: str) -> dict:
     """Get the status of a domain purchase order.
 

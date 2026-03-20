@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS orders (
     cloudflare_api_token    TEXT,
     cloudflare_token_retrieved BOOLEAN NOT NULL DEFAULT FALSE,
     nameservers             TEXT[],
+    payment_method          TEXT NOT NULL DEFAULT 'stripe',
+    x402_tx_hash            TEXT,
     status                  TEXT NOT NULL DEFAULT 'pending_payment',
     error_msg               TEXT,
     retry_count             INTEGER NOT NULL DEFAULT 0,
@@ -35,6 +37,19 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status);
 CREATE INDEX IF NOT EXISTS idx_orders_domain ON orders (domain);
 """
 
+MIGRATION_X402 = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'orders' AND column_name = 'payment_method'
+    ) THEN
+        ALTER TABLE orders ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'stripe';
+        ALTER TABLE orders ADD COLUMN x402_tx_hash TEXT;
+    END IF;
+END $$;
+"""
+
 
 async def init_pool(database_url: str) -> asyncpg.Pool:
     """Create the connection pool and run the schema migration."""
@@ -42,6 +57,7 @@ async def init_pool(database_url: str) -> asyncpg.Pool:
     _pool = await asyncpg.create_pool(database_url)
     async with _pool.acquire() as conn:
         await conn.execute(SCHEMA)
+        await conn.execute(MIGRATION_X402)
     return _pool
 
 
