@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -32,15 +33,17 @@ async def create_order(
     stripe_session_id: str | None = None,
     wholesale_cents: int | None = None,
     payment_method: str = "stripe",
+    registrant_contact: dict | None = None,
 ) -> dict:
     """Insert a new order and return it as a dict."""
     order_id = f"ord_{uuid.uuid4().hex}"
+    contact_json = json.dumps(registrant_contact) if registrant_contact else None
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
             INSERT INTO orders (id, domain, tld, amount_cents, wholesale_cents,
-                                stripe_session_id, payment_method)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                                stripe_session_id, payment_method, registrant_contact)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
             """,
             order_id,
@@ -50,6 +53,7 @@ async def create_order(
             wholesale_cents,
             stripe_session_id,
             payment_method,
+            contact_json,
         )
     return _row_to_dict(row)
 
@@ -129,6 +133,35 @@ async def get_pending_x402_order(pool: asyncpg.Pool, order_id: str) -> dict | No
             order_id,
         )
     return _row_to_dict(row)
+
+
+async def get_expiring_orders(pool: asyncpg.Pool, days: int = 90) -> list[dict]:
+    """Fetch all completed orders with domains expiring within the given days."""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM orders WHERE status = 'complete' "
+            "AND domain_expires_at IS NOT NULL "
+            "AND domain_expires_at <= now() + make_interval(days => $1) "
+            "ORDER BY domain_expires_at ASC",
+            days,
+        )
+    return [dict(row) for row in rows]
+
+
+async def update_domain_expiry(
+    pool: asyncpg.Pool, order_id: str, expires_at: datetime
+) -> dict:
+    """Update the domain_expires_at field for an order."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "UPDATE orders SET domain_expires_at = $1, updated_at = now() "
+            "WHERE id = $2 RETURNING *",
+            expires_at,
+            order_id,
+        )
+    if row is None:
+        raise ValueError(f"Order {order_id} not found")
+    return dict(row)
 
 
 async def update_x402_settlement(
