@@ -38,6 +38,7 @@ def create_checkout_session(
                 "order_id": order_id,
                 "domain": domain,
             },
+            "billing_address_collection": "required",
             "success_url": "https://instadomain.fly.dev/success?session_id={CHECKOUT_SESSION_ID}",
             "cancel_url": "https://instadomain.fly.dev/cancel",
             "expires_at": _expires_at_24h(),
