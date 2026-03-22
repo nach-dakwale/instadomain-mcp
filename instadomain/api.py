@@ -198,17 +198,30 @@ def create_app() -> FastAPI:
 
         # x402 crypto payments: only enabled when wallet address is configured
         app.state.x402_enabled = False
+        app.state.x402_usdc_address = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
         if settings.x402_wallet_address:
             from x402.http import HTTPFacilitatorClient, FacilitatorConfig
             from x402 import x402ResourceServer
             from x402.mechanisms.evm.exact import ExactEvmServerScheme
-            facilitator = HTTPFacilitatorClient(FacilitatorConfig(url=settings.x402_facilitator_url))
+
+            # Testnet mode: override network and facilitator for Base Sepolia
+            x402_network = settings.x402_network
+            x402_facilitator_url = settings.x402_facilitator_url
+            if settings.x402_testnet:
+                x402_network = "eip155:84532"
+                x402_facilitator_url = "https://x402.org/facilitator"
+                app.state.x402_usdc_address = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+                logger.info("x402 TESTNET mode active (Base Sepolia)")
+            else:
+                app.state.x402_usdc_address = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+
+            facilitator = HTTPFacilitatorClient(FacilitatorConfig(url=x402_facilitator_url))
             resource_server = x402ResourceServer(facilitator_clients=[facilitator])
-            resource_server.register(settings.x402_network, ExactEvmServerScheme())
+            resource_server.register(x402_network, ExactEvmServerScheme())
             resource_server.initialize()
             app.state.x402_resource_server = resource_server
             app.state.x402_wallet = settings.x402_wallet_address
-            app.state.x402_network = settings.x402_network
+            app.state.x402_network = x402_network
             app.state.x402_enabled = True
             logger.info("x402 crypto payments enabled (wallet=%s)", settings.x402_wallet_address[:10] + "...")
 
@@ -710,9 +723,6 @@ def create_app() -> FastAPI:
     # x402 crypto payment endpoints
     # ------------------------------------------------------------------
 
-    # USDC on Base mainnet
-    _USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-
     @app.post("/buy/crypto")
     @app_limiter.limit("5/minute")
     async def buy_domain_crypto(body: BuyRequest, request: Request):
@@ -787,7 +797,7 @@ def create_app() -> FastAPI:
             "price_cents": retail_cents,
             "price_display": format_price(retail_cents),
             "network": settings.x402_network,
-            "asset": _USDC_BASE,
+            "asset": request.app.state.x402_usdc_address,
         }
 
     @app.get("/pay/{order_id}")

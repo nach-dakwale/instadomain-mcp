@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     x402_facilitator_url: str = "https://facilitator.xpay.sh"
     x402_network: str = "eip155:8453"
 
+    x402_testnet: bool = False
+
     # Affiliate links
     dynadot_affiliate_id: str = "PLACEHOLDER_DYNADOT"
     enable_affiliate_links: bool = True
