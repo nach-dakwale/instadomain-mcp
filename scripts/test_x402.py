@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 
 import httpx
 from eth_account import Account
@@ -179,10 +180,44 @@ def main():
     # Step 4: Pay via x402
     success = pay_with_x402(account, order["pay_url"])
 
-    if success:
-        print("\n=== TEST PASSED ===")
+    if not success:
+        print("\n=== TEST FAILED (payment rejected) ===")
+        sys.exit(1)
+
+    # Step 5: Poll order status until terminal state
+    print(f"\nPolling order status for {order['order_id']}...")
+    order_id = order["order_id"]
+    terminal_states = {"complete", "failed"}
+    max_polls = 60
+    poll_interval = 5
+
+    for i in range(max_polls):
+        resp = httpx.get(f"{SERVER_URL}/status/{order_id}", timeout=10)
+        if resp.status_code != 200:
+            print(f"  Poll {i+1}: HTTP {resp.status_code}")
+            time.sleep(poll_interval)
+            continue
+
+        status_data = resp.json()
+        status = status_data["status"]
+        print(f"  Poll {i+1}: {status}")
+
+        if status in terminal_states:
+            if status == "complete":
+                print(f"\n=== FULL E2E TEST PASSED ===")
+                print(f"Domain: {status_data['domain']}")
+                print(f"Nameservers: {status_data.get('nameservers')}")
+                if status_data.get("cloudflare_token"):
+                    print(f"DNS Token: {status_data['cloudflare_token']}")
+            else:
+                print(f"\n=== TEST FAILED (fulfillment) ===")
+                print(f"Error: {status_data.get('error_msg')}")
+                sys.exit(1)
+            break
+
+        time.sleep(poll_interval)
     else:
-        print("\n=== TEST FAILED ===")
+        print(f"\n=== TEST TIMED OUT after {max_polls * poll_interval}s ===")
         sys.exit(1)
 
 
