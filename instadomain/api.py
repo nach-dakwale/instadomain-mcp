@@ -185,10 +185,16 @@ def create_app() -> FastAPI:
         """Initialize DB pool and clients on startup; clean up on shutdown."""
         settings = Settings()
         app.state.pool = await init_pool(settings.database_url)
+        opensrs_url = settings.opensrs_api_url
+        opensrs_key = settings.opensrs_api_key
+        if settings.x402_testnet:
+            opensrs_url = settings.opensrs_test_api_url
+            if settings.opensrs_test_api_key:
+                opensrs_key = settings.opensrs_test_api_key
         app.state.opensrs = OpenSRSClient(
-            api_key=settings.opensrs_api_key,
+            api_key=opensrs_key,
             reseller_username=settings.opensrs_reseller_username,
-            api_url=settings.opensrs_api_url,
+            api_url=opensrs_url,
         )
         app.state.cloudflare = CloudflareClient(
             api_token=settings.cloudflare_api_token,
@@ -740,53 +746,39 @@ def create_app() -> FastAPI:
         pool = request.app.state.pool
         opensrs = request.app.state.opensrs
 
-        # In testnet mode, skip registrar pre-validation and use a fixed
-        # test price. We're only testing the x402 payment path, not OpenSRS.
-        is_testnet = getattr(request.app.state, "x402_testnet", False)
-        if is_testnet:
-            logger.info("TESTNET: skipping OpenSRS pre-validation for %s", domain)
-        else:
-            # Pre-validation: verify availability directly with the registrar
-            # before creating an order. Crypto payments are irreversible, so we
-            # need high confidence the domain can actually be registered.
-            try:
-                registrar_available = await asyncio.to_thread(
-                    opensrs.check_availability, domain
-                )
-            except Exception as exc:
-                logger.warning("OpenSRS availability check failed for %s: %s", domain, exc)
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Could not verify domain availability with registrar: {exc}",
-                )
+        try:
+            registrar_available = await asyncio.to_thread(
+                opensrs.check_availability, domain
+            )
+        except Exception as exc:
+            logger.warning("OpenSRS availability check failed for %s: %s", domain, exc)
+            raise HTTPException(
+                status_code=502,
+                detail=f"Could not verify domain availability with registrar: {exc}",
+            )
 
-            if not registrar_available:
-                logger.info(
-                    "Pre-validation failed: %s shows available via RDAP but unavailable at registrar",
-                    domain,
-                )
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        f"Domain {domain} appeared available but the registrar reports it "
-                        "is not. This can happen with recently expired or reserved domains. "
-                        "No payment was created."
-                    ),
-                )
-            logger.info("Pre-validation passed for %s: registrar confirms available", domain)
+        if not registrar_available:
+            logger.info(
+                "Pre-validation failed: %s shows available via RDAP but unavailable at registrar",
+                domain,
+            )
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Domain {domain} appeared available but the registrar reports it "
+                    "is not. This can happen with recently expired or reserved domains. "
+                    "No payment was created."
+                ),
+            )
+        logger.info("Pre-validation passed for %s: registrar confirms available", domain)
 
-            try:
-                wholesale_cents = await _get_price(domain, opensrs)
-            except Exception as exc:
-                raise HTTPException(status_code=502, detail=f"Price lookup failed: {exc}")
+        try:
+            wholesale_cents = await _get_price(domain, opensrs)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Price lookup failed: {exc}")
 
         tld = domain.rsplit(".", 1)[-1] if "." in domain else "com"
-
-        if is_testnet:
-            wholesale_cents = 1
-            retail_cents = 1  # $0.01 test price
-        else:
-            retail_cents = calculate_retail_cents(wholesale_cents, tld)
+        retail_cents = calculate_retail_cents(wholesale_cents, tld)
 
         order = await create_order(
             pool,

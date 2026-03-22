@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     opensrs_api_key: str = ""
     opensrs_reseller_username: str = ""
     opensrs_api_url: str = "https://rr-n1-tor.opensrs.net:55443"
+    opensrs_test_api_url: str = "https://horizon.opensrs.net:55443"
+    opensrs_test_api_key: str = ""
 
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
