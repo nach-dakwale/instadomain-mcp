@@ -168,7 +168,7 @@ def main():
         sys.exit(1)
 
     # Step 3: Create an x402 order
-    test_domain = "x402-testnet-check.xyz"
+    test_domain = os.environ.get("TEST_DOMAIN", "zzqrtx7749.com")
     print(f"\nCreating x402 order for: {test_domain}")
     order = create_x402_order(test_domain)
     print(f"Order created: {order['order_id']}")

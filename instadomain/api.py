@@ -223,6 +223,7 @@ def create_app() -> FastAPI:
             app.state.x402_wallet = settings.x402_wallet_address
             app.state.x402_network = x402_network
             app.state.x402_enabled = True
+            app.state.x402_testnet = settings.x402_testnet
             logger.info("x402 crypto payments enabled (wallet=%s)", settings.x402_wallet_address[:10] + "...")
 
         # Recover orders stuck in dns_pending/setting_dns from before restart
@@ -739,42 +740,53 @@ def create_app() -> FastAPI:
         pool = request.app.state.pool
         opensrs = request.app.state.opensrs
 
-        # Pre-validation: verify availability directly with the registrar
-        # before creating an order. Crypto payments are irreversible, so we
-        # need high confidence the domain can actually be registered.
-        try:
-            registrar_available = await asyncio.to_thread(
-                opensrs.check_availability, domain
-            )
-        except Exception as exc:
-            logger.warning("OpenSRS availability check failed for %s: %s", domain, exc)
-            raise HTTPException(
-                status_code=502,
-                detail=f"Could not verify domain availability with registrar: {exc}",
-            )
+        # In testnet mode, skip registrar pre-validation and use a fixed
+        # test price. We're only testing the x402 payment path, not OpenSRS.
+        is_testnet = getattr(request.app.state, "x402_testnet", False)
+        if is_testnet:
+            logger.info("TESTNET: skipping OpenSRS pre-validation for %s", domain)
+        else:
+            # Pre-validation: verify availability directly with the registrar
+            # before creating an order. Crypto payments are irreversible, so we
+            # need high confidence the domain can actually be registered.
+            try:
+                registrar_available = await asyncio.to_thread(
+                    opensrs.check_availability, domain
+                )
+            except Exception as exc:
+                logger.warning("OpenSRS availability check failed for %s: %s", domain, exc)
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Could not verify domain availability with registrar: {exc}",
+                )
 
-        if not registrar_available:
-            logger.info(
-                "Pre-validation failed: %s shows available via RDAP but unavailable at registrar",
-                domain,
-            )
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"Domain {domain} appeared available but the registrar reports it "
-                    "is not. This can happen with recently expired or reserved domains. "
-                    "No payment was created."
-                ),
-            )
-        logger.info("Pre-validation passed for %s: registrar confirms available", domain)
+            if not registrar_available:
+                logger.info(
+                    "Pre-validation failed: %s shows available via RDAP but unavailable at registrar",
+                    domain,
+                )
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Domain {domain} appeared available but the registrar reports it "
+                        "is not. This can happen with recently expired or reserved domains. "
+                        "No payment was created."
+                    ),
+                )
+            logger.info("Pre-validation passed for %s: registrar confirms available", domain)
 
-        try:
-            wholesale_cents = await _get_price(domain, opensrs)
-        except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Price lookup failed: {exc}")
+            try:
+                wholesale_cents = await _get_price(domain, opensrs)
+            except Exception as exc:
+                raise HTTPException(status_code=502, detail=f"Price lookup failed: {exc}")
 
         tld = domain.rsplit(".", 1)[-1] if "." in domain else "com"
-        retail_cents = calculate_retail_cents(wholesale_cents, tld)
+
+        if is_testnet:
+            wholesale_cents = 1
+            retail_cents = 1  # $0.01 test price
+        else:
+            retail_cents = calculate_retail_cents(wholesale_cents, tld)
 
         order = await create_order(
             pool,
@@ -796,7 +808,7 @@ def create_app() -> FastAPI:
             "price_usdc": price_usdc,
             "price_cents": retail_cents,
             "price_display": format_price(retail_cents),
-            "network": settings.x402_network,
+            "network": request.app.state.x402_network,
             "asset": request.app.state.x402_usdc_address,
         }
 

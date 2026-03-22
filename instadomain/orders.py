@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -51,7 +52,7 @@ async def create_order(
             wholesale_cents,
             stripe_session_id,
             payment_method,
-            registrant_contact,
+            json.dumps(registrant_contact) if isinstance(registrant_contact, dict) else registrant_contact,
         )
     return _row_to_dict(row)
 
