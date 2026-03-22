@@ -8,4 +8,4 @@ stripe>=8.0
 cryptography>=42.0
 slowapi>=0.1
 fastmcp>=2.0
-x402[fastapi,evm]>=2.0
+x402[fastapi,evm,httpx]>=2.0
