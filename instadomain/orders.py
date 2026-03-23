@@ -10,7 +10,7 @@ import asyncpg
 TRANSITIONS: dict[str, set[str]] = {
     "pending_payment": {"registering", "expired", "failed"},
     "registering": {"setting_dns", "failed"},
-    "setting_dns": {"complete", "failed", "dns_pending"},
+    "setting_dns": {"setting_dns", "complete", "failed", "dns_pending"},
     "dns_pending": {"setting_dns", "complete", "failed"},
     "complete": set(),
     "expired": set(),
