@@ -311,6 +311,17 @@ class OpenSRSClient:
         response = self._post(xml_body)
         self._parse_response(response.text)
 
+    def lock_domain(self, domain: str) -> None:
+        """Apply the registrar transfer lock to a domain."""
+        attrs = {
+            "domain": domain,
+            "data": "status",
+            "lock_state": "1",
+        }
+        xml_body = self._build_envelope("MODIFY", "DOMAIN", attrs)
+        response = self._post(xml_body)
+        self._parse_response(response.text)
+
     def update_nameservers(self, domain: str, nameservers: list[str]) -> None:
         """Update the nameservers for a domain."""
         ns_list = list(nameservers)

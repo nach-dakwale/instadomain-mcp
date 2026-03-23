@@ -247,13 +247,23 @@ async def _complete_dns_setup(
         )
 
     # Non-fatal: nameservers may already be applied, but retrying is harmless.
+    # Domains are registered locked (f_lock_domain=1), so we must unlock
+    # before updating nameservers, then re-lock after.
     if nameservers:
         try:
+            await asyncio.to_thread(opensrs.unlock_domain, domain)
             await asyncio.to_thread(opensrs.update_nameservers, domain, nameservers)
         except Exception as exc:
             logger.warning(
                 "Nameserver update failed for %s (non-fatal): %s", domain, exc
             )
+        finally:
+            try:
+                await asyncio.to_thread(opensrs.lock_domain, domain)
+            except Exception as exc:
+                logger.warning(
+                    "Re-lock failed for %s (non-fatal): %s", domain, exc
+                )
 
     # Bug 5 fix: if the order already has an encrypted token in the DB,
     # skip token creation (it was created on a previous attempt that failed
