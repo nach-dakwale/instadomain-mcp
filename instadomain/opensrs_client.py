@@ -313,7 +313,7 @@ class OpenSRSClient:
 
     def update_nameservers(self, domain: str, nameservers: list[str]) -> None:
         """Update the nameservers for a domain."""
-        ns_list = {str(i + 1): {"name": ns} for i, ns in enumerate(nameservers)}
+        ns_list = list(nameservers)
         attrs = {
             "domain": domain,
             "op_type": "assign",
