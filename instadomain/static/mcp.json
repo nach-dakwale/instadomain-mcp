@@ -1,7 +1,7 @@
 {
   "mcp": {
     "name": "instadomain",
-    "description": "AI agents buy domains autonomously via x402 (USDC on Base), no human in the loop. Also supports Stripe checkout for manual approval. Includes Cloudflare DNS, WHOIS privacy, transfers, and renewals.",
+    "description": "AI agents check, suggest, and buy domains. Pay with Stripe (card) or x402 (USDC on Base). L402 and MPP coming soon. Includes Cloudflare DNS, WHOIS privacy, transfers, and renewals.",
     "url": "https://instadomain.fly.dev/mcp/",
     "transport": "streamable-http",
     "authentication": "none",
@@ -28,15 +28,15 @@
         }
       },
       {
-        "name": "buy_domain_crypto",
-        "description": "Autonomous purchase via x402 protocol. Agent pays with USDC on Base, no human needed. Returns a pay_url for the x402 HTTP client.",
+        "name": "buy_domain",
+        "description": "Purchase via Stripe checkout. Returns a checkout URL for the user.",
         "parameters": {
           "domain": "string"
         }
       },
       {
-        "name": "buy_domain",
-        "description": "Manual purchase via Stripe checkout. Returns a checkout URL for the user to approve.",
+        "name": "buy_domain_crypto",
+        "description": "Purchase via x402 protocol. Pay with USDC on Base. Returns a pay_url for the x402 HTTP client.",
         "parameters": {
           "domain": "string"
         }
@@ -73,8 +73,10 @@
     "pricing": {
       "model": "wholesale + flat markup",
       "payment_methods": [
-        "x402 (USDC on Base) - autonomous agent payment",
-        "Stripe (card) - manual user approval"
+        "Stripe (card)",
+        "x402 (USDC on Base)",
+        "L402 (Bitcoin Lightning) - coming soon",
+        "MPP (Stripe Machine Payments) - coming soon"
       ],
       "examples": {
         ".com": "~$14",

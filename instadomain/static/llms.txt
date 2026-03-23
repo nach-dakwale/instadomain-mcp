@@ -1,6 +1,6 @@
 # InstaDomain
 
-> MCP server for autonomous domain registration. AI agents buy domains with USDC via the x402 protocol, no human in the loop. Also supports Stripe checkout for manual approval.
+> MCP server for domain registration. AI agents check availability, suggest names, and purchase domains. Pay with Stripe (card) or x402 (USDC on Base). L402 and MPP coming soon.
 
 ## Connect
 
@@ -23,20 +23,20 @@ No API key or authentication required to connect.
 
 ## Tools
 
+### buy_domain
+Purchase via Stripe checkout. Returns a checkout URL for the user.
+- Input: domain (string)
+- Output: order_id, checkout_url (Stripe), price_cents, price_display
+- IMPORTANT: Always show the user the price from check_domain and get explicit confirmation before calling this.
+- The checkout_url should be opened in the user's browser.
+
 ### buy_domain_crypto
-Autonomous purchase via x402 protocol. Agent pays with USDC on Base, no human needed.
+Purchase via x402 protocol. Pay with USDC on Base.
 - Input: domain (string)
 - Output: order_id, pay_url, price_usdc, price_cents, network, asset
 - Two-step flow: (1) call this tool to get pay_url, (2) make a GET request to pay_url with an x402-enabled HTTP client. The client receives HTTP 402, auto-pays USDC, and the domain is registered.
 - Requires an x402-compatible HTTP client with a funded USDC wallet on Base.
 - After payment, poll with get_domain_status(order_id) until complete.
-
-### buy_domain
-Manual purchase via Stripe checkout. Returns a checkout URL for the user to approve.
-- Input: domain (string)
-- Output: order_id, checkout_url (Stripe), price_cents, price_display
-- IMPORTANT: Always show the user the price from check_domain and get explicit confirmation before calling this.
-- The checkout_url should be opened in the user's browser.
 
 ### check_domain
 Check if a single domain is available and get its price.
@@ -77,17 +77,20 @@ Renew domain registration via Stripe checkout.
 - Input: order_id (string)
 - Output: checkout_url, price
 
-## Payment paths
+## Payment methods
 
-**x402 (autonomous):** Agent calls buy_domain_crypto, gets a pay_url, makes an x402 HTTP request. USDC is transferred on Base. Domain is registered. No human involved.
+**Stripe (card):** Agent calls buy_domain, gets a checkout_url. User clicks the link, pays with card. Domain is registered after payment.
 
-**Stripe (manual):** Agent calls buy_domain, gets a checkout_url. User clicks the link, pays with card. Domain is registered after payment.
+**x402 (USDC on Base):** Agent calls buy_domain_crypto, gets a pay_url, makes an x402 HTTP request. USDC is transferred on Base. Domain is registered.
 
-Both paths lead to the same result: OpenSRS registration, Cloudflare DNS zone, scoped API token, WHOIS privacy.
+**Coming soon:** L402 (Bitcoin Lightning), MPP (Stripe Machine Payments Protocol).
+
+All payment paths lead to the same result: OpenSRS registration, Cloudflare DNS zone, scoped API token, WHOIS privacy.
 
 ## Pricing
 
 Wholesale registry cost plus a small flat markup. No hidden fees.
+Accepts Stripe (card) and x402 (USDC on Base). L402 and MPP coming soon.
 
 | TLD  | Typical price |
 |------|---------------|

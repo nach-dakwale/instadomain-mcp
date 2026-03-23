@@ -1,8 +1,8 @@
 name: instadomain
 description: >
-  AI agents buy domains autonomously via x402 (USDC on Base), no human in the loop.
-  Also supports Stripe checkout for manual approval. Includes Cloudflare DNS setup,
-  WHOIS privacy, domain transfers, and renewals.
+  AI agents check, suggest, and buy domains. Pay with Stripe (card) or x402 (USDC on Base).
+  L402 and MPP coming soon. Includes Cloudflare DNS setup, WHOIS privacy, domain transfers,
+  and renewals.
 startCommand:
   type: http
 configSchema:
