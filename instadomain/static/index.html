@@ -22,11 +22,11 @@
             "priceCurrency": "USD"
         },
         "featureList": [
-            "buy_domain: Purchase via Stripe checkout (card)",
-            "buy_domain_crypto: Purchase via x402 protocol (USDC on Base)",
             "check_domain: Check single domain availability with exact pricing",
             "check_domains_bulk: Check up to 50 domains in one call via RDAP",
             "suggest_domains: Generate and check domain name ideas from a keyword",
+            "buy_domain: Purchase via Stripe checkout (card)",
+            "buy_domain_crypto: Purchase via x402 protocol (USDC on Base)",
             "get_domain_status: Poll order until complete, returns nameservers and Cloudflare API token",
             "get_transfer_code: Get EPP auth code for transferring domain to another registrar",
             "unlock_domain: Unlock domain for transfer",
@@ -504,6 +504,36 @@
                             </div>
                         </div>
                     </div>
+                    <div class="tool" role="listitem">
+                        <div class="tool-l"><code>get_transfer_code</code><span class="tt">read</span></div>
+                        <div class="tool-r">
+                            <p>Get EPP auth code for transferring a domain to another registrar.</p>
+                            <div class="tool-sig">
+                                <span><span class="lbl">in</span> order_id: string</span>
+                                <span><span class="lbl">out</span> auth_code, domain</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tool" role="listitem">
+                        <div class="tool-l"><code>unlock_domain</code><span class="tt">write</span></div>
+                        <div class="tool-r">
+                            <p>Unlock a domain for transfer to another registrar.</p>
+                            <div class="tool-sig">
+                                <span><span class="lbl">in</span> order_id: string</span>
+                                <span><span class="lbl">out</span> success status</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tool" role="listitem">
+                        <div class="tool-l"><code>renew_domain</code><span class="tt">write // stripe</span></div>
+                        <div class="tool-r">
+                            <p>Renew domain registration. Returns a Stripe checkout URL.</p>
+                            <div class="tool-sig">
+                                <span><span class="lbl">in</span> order_id: string</span>
+                                <span><span class="lbl">out</span> checkout_url, price</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -577,6 +607,16 @@
                             <span class="rt-m">GET</span>
                             <span class="rt-p">/suggest?keyword=X</span>
                             <span class="rt-d">generate + check ideas</span>
+                        </div>
+                        <div class="rt">
+                            <span class="rt-m">POST</span>
+                            <span class="rt-p">/buy/crypto</span>
+                            <span class="rt-d">create x402 order</span>
+                        </div>
+                        <div class="rt">
+                            <span class="rt-m">GET</span>
+                            <span class="rt-p">/pay/{order_id}</span>
+                            <span class="rt-d">x402 paywalled endpoint</span>
                         </div>
                     </div>
                 </div>
