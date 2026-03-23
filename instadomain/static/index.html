@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InstaDomain - MCP server for domain registration</title>
-    <meta name="description" content="MCP server that gives AI assistants the ability to check availability, suggest names, and purchase domains. Connect once, buy domains from any conversation.">
+    <title>InstaDomain - AI agents that buy domains autonomously</title>
+    <meta name="description" content="MCP server for autonomous domain registration. AI agents pay with USDC via x402 protocol, no human in the loop. Or use Stripe checkout for manual approval. Cloudflare DNS included.">
     <link rel="alternate" type="text/plain" href="/llms.txt" title="LLM-readable site summary">
     <link rel="alternate" type="application/json" href="/.well-known/mcp.json" title="MCP server discovery">
     <script type="application/ld+json">
@@ -12,22 +12,25 @@
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "InstaDomain",
-        "description": "MCP server for domain registration. Tools: check_domain (availability + pricing), check_domains_bulk (up to 50), suggest_domains (keyword to candidates), buy_domain (Stripe checkout), buy_domain_crypto (x402 USDC on Base), get_domain_status (poll until complete). Transport: Streamable HTTP. Auth: none required.",
+        "description": "MCP server for autonomous domain registration. AI agents buy domains with USDC via x402 protocol, no human needed. Also supports Stripe checkout for manual approval. Tools: check_domain, check_domains_bulk, suggest_domains, buy_domain_crypto (x402 autonomous), buy_domain (Stripe), get_domain_status, get_transfer_code, unlock_domain, renew_domain. Transport: Streamable HTTP. Auth: none required.",
         "url": "https://instadomain.fly.dev",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Any (MCP-compatible AI client)",
         "offers": {
             "@type": "Offer",
-            "description": "Wholesale domain pricing plus a small flat markup. .com from ~$14, .dev from ~$19, .io from ~$45. WHOIS privacy included. Accepts USD (Stripe) and USDC on Base (x402).",
+            "description": "Wholesale domain pricing plus a small flat markup. .com from ~$14, .dev from ~$19, .io from ~$45. WHOIS privacy included. Pays with USDC on Base (x402, autonomous) or USD via Stripe (manual approval).",
             "priceCurrency": "USD"
         },
         "featureList": [
+            "buy_domain_crypto: Autonomous agent purchase via x402 protocol, pay with USDC on Base, no human in the loop",
+            "buy_domain: Manual purchase via Stripe checkout for human approval",
             "check_domain: Check single domain availability with exact pricing",
             "check_domains_bulk: Check up to 50 domains in one call via RDAP",
             "suggest_domains: Generate and check domain name ideas from a keyword",
-            "buy_domain: Purchase domains via Stripe checkout, auto-registers via OpenSRS",
-            "buy_domain_crypto: Autonomous agent purchase via x402 protocol, pay with USDC on Base",
             "get_domain_status: Poll order until complete, returns nameservers and Cloudflare API token",
+            "get_transfer_code: Get EPP auth code for transferring domain to another registrar",
+            "unlock_domain: Unlock domain for transfer",
+            "renew_domain: Renew domain registration via Stripe checkout",
             "Automatic Cloudflare DNS zone creation with scoped API token",
             "WHOIS privacy included by default",
             "Free REST API: GET /check/{domain}, POST /check, GET /suggest?keyword=X"
@@ -391,11 +394,11 @@
         <main>
             <section class="hero">
                 <div class="hero-pre"><span>$</span> mcp_server <span>--</span>protocol=domains</div>
-                <h1>Your AI <span class="hl">buys the domain.</span><br>You keep building.</h1>
+                <h1>Your AI <span class="hl">buys the domain.</span><br>No checkout page. No tab switch.</h1>
                 <p class="hero-desc">
-                    MCP server for domain registration. Connect your AI assistant once.
-                    It checks availability, suggests names, handles Stripe checkout,
-                    and sets up Cloudflare DNS. You never leave your editor.
+                    MCP server for autonomous domain registration. Your agent pays with USDC
+                    via the x402 protocol. No human in the loop. Or use Stripe checkout
+                    when you want to approve the purchase yourself.
                 </p>
 
                 <div class="ep" role="region" aria-label="MCP endpoint">
@@ -427,10 +430,11 @@
                     <div class="term-bar"><i></i><i></i><i></i></div>
                     <div class="term-code"><span class="tp">you:</span> <span class="tc">grab a .com for my notes app</span>
 <span class="tp"> ai:</span> <span class="tc">Checking names...</span>
-<span class="tg">     notesprint.com available - $14.09</span>
-<span class="tc">     Opening checkout.</span>
+<span class="tg">     notesprint.com available - $14.09 USDC</span>
+<span class="tc">     Paying via x402...</span>
+<span class="tg">     Paid. Registering domain.</span>
 <span class="tg">     Registered. Cloudflare DNS ready.</span>
-<span class="ta">     30 seconds. No tab switching.</span><span class="cur"></span></div>
+<span class="ta">     Autonomous. No checkout page.</span><span class="cur"></span></div>
                 </div>
             </section>
 
@@ -471,22 +475,22 @@
                         </div>
                     </div>
                     <div class="tool" role="listitem">
-                        <div class="tool-l"><code>buy_domain</code><span class="tt">write</span></div>
+                        <div class="tool-l"><code>buy_domain_crypto</code><span class="tt">write // x402</span></div>
                         <div class="tool-r">
-                            <p>Start purchase flow. Returns a Stripe checkout URL for the user.</p>
+                            <p>Autonomous purchase. Agent pays with USDC on Base via x402. No checkout page, no human approval needed.</p>
                             <div class="tool-sig">
                                 <span><span class="lbl">in</span> domain: string</span>
-                                <span><span class="lbl">out</span> order_id, checkout_url, price_cents</span>
+                                <span><span class="lbl">out</span> order_id, pay_url, price_usdc, network</span>
                             </div>
                         </div>
                     </div>
                     <div class="tool" role="listitem">
-                        <div class="tool-l"><code>buy_domain_crypto</code><span class="tt">write // x402</span></div>
+                        <div class="tool-l"><code>buy_domain</code><span class="tt">write // stripe</span></div>
                         <div class="tool-r">
-                            <p>Autonomous agent purchase via x402 protocol. Pay with USDC on Base, no human needed.</p>
+                            <p>Manual purchase. Returns a Stripe checkout URL for the user to approve.</p>
                             <div class="tool-sig">
                                 <span><span class="lbl">in</span> domain: string</span>
-                                <span><span class="lbl">out</span> order_id, pay_url, price_usdc, network</span>
+                                <span><span class="lbl">out</span> order_id, checkout_url, price_cents</span>
                             </div>
                         </div>
                     </div>
@@ -506,10 +510,17 @@
             <hr class="sep">
 
             <section>
-                <div class="sh">post-purchase</div>
-                <h2 class="st">Everything wires up automatically.</h2>
+                <div class="sh">two payment paths</div>
+                <h2 class="st">Autonomous or manual. Same result.</h2>
+                <div class="chain" style="margin-bottom: 12px;">
+                    <div class="ch"><span class="ch-n">x402</span><strong>Agent pays USDC</strong><span>Fully autonomous</span><span class="ch-arrow">&gt;</span></div>
+                    <div class="ch"><span class="ch-n">02</span><strong>OpenSRS</strong><span>Domain registered</span><span class="ch-arrow">&gt;</span></div>
+                    <div class="ch"><span class="ch-n">03</span><strong>Cloudflare</strong><span>DNS zone created</span><span class="ch-arrow">&gt;</span></div>
+                    <div class="ch"><span class="ch-n">04</span><strong>API token</strong><span>Scoped token returned</span><span class="ch-arrow">&gt;</span></div>
+                    <div class="ch"><span class="ch-n">05</span><strong>WHOIS</strong><span>Privacy enabled</span></div>
+                </div>
                 <div class="chain">
-                    <div class="ch"><span class="ch-n">01</span><strong>Stripe</strong><span>User completes checkout</span><span class="ch-arrow">&gt;</span></div>
+                    <div class="ch"><span class="ch-n">stripe</span><strong>User approves</strong><span>Checkout link</span><span class="ch-arrow">&gt;</span></div>
                     <div class="ch"><span class="ch-n">02</span><strong>OpenSRS</strong><span>Domain registered</span><span class="ch-arrow">&gt;</span></div>
                     <div class="ch"><span class="ch-n">03</span><strong>Cloudflare</strong><span>DNS zone created</span><span class="ch-arrow">&gt;</span></div>
                     <div class="ch"><span class="ch-n">04</span><strong>API token</strong><span>Scoped token returned</span><span class="ch-arrow">&gt;</span></div>
@@ -536,7 +547,8 @@
                     </div>
                     <div class="pr-r">
                         <p>Wholesale registry cost + small flat markup. Exact price always returned by <code>check_domain</code> before purchase.</p>
-                        <p>Pay with Stripe (card) or USDC on Base via <code>x402</code> protocol. Agents with x402-enabled wallets can pay autonomously.</p>
+                        <p><code>x402</code> (USDC on Base): Agent pays autonomously. No checkout page, no human approval.<br>
+                        <code>Stripe</code> (card): Agent generates a checkout link for you to approve.</p>
                         <p>No hidden fees. No upsells. No renewal traps.</p>
                     </div>
                 </div>

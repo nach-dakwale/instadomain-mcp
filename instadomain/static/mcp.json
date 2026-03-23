@@ -1,14 +1,14 @@
 {
   "mcp": {
     "name": "instadomain",
-    "description": "Check availability, suggest names, and purchase domains. Handles Stripe checkout, OpenSRS registration, and Cloudflare DNS setup automatically.",
+    "description": "AI agents buy domains autonomously via x402 (USDC on Base), no human in the loop. Also supports Stripe checkout for manual approval. Includes Cloudflare DNS, WHOIS privacy, transfers, and renewals.",
     "url": "https://instadomain.fly.dev/mcp/",
     "transport": "streamable-http",
     "authentication": "none",
     "tools": [
       {
         "name": "check_domain",
-        "description": "Check if a domain is available and get its price. Always call before buy_domain.",
+        "description": "Check if a domain is available and get its price. Always call before purchasing.",
         "parameters": {
           "domain": "string (e.g. 'coolstartup.com')"
         }
@@ -28,8 +28,15 @@
         }
       },
       {
+        "name": "buy_domain_crypto",
+        "description": "Autonomous purchase via x402 protocol. Agent pays with USDC on Base, no human needed. Returns a pay_url for the x402 HTTP client.",
+        "parameters": {
+          "domain": "string"
+        }
+      },
+      {
         "name": "buy_domain",
-        "description": "Start purchase via Stripe checkout. Show user the price from check_domain first.",
+        "description": "Manual purchase via Stripe checkout. Returns a checkout URL for the user to approve.",
         "parameters": {
           "domain": "string"
         }
@@ -40,10 +47,35 @@
         "parameters": {
           "order_id": "string (e.g. 'ord_abc123')"
         }
+      },
+      {
+        "name": "get_transfer_code",
+        "description": "Get EPP auth code for transferring a domain to another registrar.",
+        "parameters": {
+          "order_id": "string"
+        }
+      },
+      {
+        "name": "unlock_domain",
+        "description": "Unlock a domain for transfer to another registrar.",
+        "parameters": {
+          "order_id": "string"
+        }
+      },
+      {
+        "name": "renew_domain",
+        "description": "Renew domain registration via Stripe checkout.",
+        "parameters": {
+          "order_id": "string"
+        }
       }
     ],
     "pricing": {
       "model": "wholesale + flat markup",
+      "payment_methods": [
+        "x402 (USDC on Base) - autonomous agent payment",
+        "Stripe (card) - manual user approval"
+      ],
       "examples": {
         ".com": "~$14",
         ".dev": "~$19",
@@ -58,6 +90,8 @@
         {"method": "GET", "path": "/check/{domain}", "description": "Check one domain"},
         {"method": "POST", "path": "/check", "description": "Bulk check up to 50 domains"},
         {"method": "GET", "path": "/suggest?keyword=X", "description": "Generate and check name ideas"},
+        {"method": "POST", "path": "/buy/crypto", "description": "Create x402 crypto order"},
+        {"method": "GET", "path": "/pay/{order_id}", "description": "x402 paywalled endpoint"},
         {"method": "GET", "path": "/docs", "description": "OpenAPI documentation"}
       ]
     }
