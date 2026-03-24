@@ -4,6 +4,8 @@
 
 InstaDomain is an MCP server that lets AI coding assistants (Claude Code, Cursor, Windsurf) register domains on your behalf. Pay with Stripe or x402 (USDC on Base). Domains are registered in your name with Cloudflare DNS auto-configured.
 
+[![InstaDomain MCP server](https://glama.ai/mcp/servers/nach-dakwale/instadomain-mcp/badges/card.svg)](https://glama.ai/mcp/servers/nach-dakwale/instadomain-mcp)
+
 ## Why?
 
 You're building a project in Claude Code. You need a domain. Today you alt-tab to Namecheap, search, add to cart, fill out forms, configure DNS. That's 10 minutes of context-switching.
