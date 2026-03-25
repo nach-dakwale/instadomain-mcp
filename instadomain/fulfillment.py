@@ -19,154 +19,23 @@ from datetime import datetime, timezone
 
 from instadomain.emails import (
     send_crypto_refund_alert,
-    send_purchase_success_email,
     send_refund_email,
 )
-from instadomain.encryption import encrypt
 from instadomain.orders import get_order, update_order_status
 from instadomain.stripe_handler import issue_refund
+
+# Re-export for existing imports and test monkeypatching
+from instadomain.fulfillment_dns import (  # noqa: F401
+    _schedule_dns_retry,
+    complete_dns_setup as _complete_dns_setup,
+    retry_dns_setup,
+)
+from instadomain.emails import send_purchase_success_email  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 # Placeholder nameservers used for initial registration before CF zone exists
 _PLACEHOLDER_NS = ["ns1.instadomain.dev", "ns2.instadomain.dev"]
-_DNS_RETRY_DELAYS_SECONDS = (30, 120, 300)
-
-
-async def _send_dns_failure_alert(order_id: str, domain: str) -> None:
-    """Alert the admin that DNS setup exhausted all retries.
-
-    The domain IS registered at OpenSRS, so no auto-refund is appropriate.
-    """
-    from instadomain.emails import ALERT_EMAIL, _send_email_sync
-
-    body = (
-        f"DNS SETUP FAILED - MANUAL INTERVENTION REQUIRED\n\n"
-        f"Order ID: {order_id}\n"
-        f"Domain: {domain}\n\n"
-        f"DNS setup failed after maximum retries. The domain is registered "
-        f"at OpenSRS but Cloudflare zone/token setup could not be completed.\n\n"
-        f"Action required: manually complete DNS setup or contact the customer."
-    )
-    await asyncio.to_thread(
-        _send_email_sync,
-        to_email=ALERT_EMAIL,
-        subject=f"[ALERT] DNS setup failed: {domain} (order {order_id})",
-        body=body,
-    )
-
-
-async def _handle_dns_retry_exhaustion(pool, order_id: str, domain: str) -> None:
-    """Transition order to failed and send an alert when retries are exhausted."""
-    try:
-        await update_order_status(
-            pool,
-            order_id,
-            "failed",
-            error_msg="DNS setup failed after maximum retries",
-        )
-    except ValueError:
-        logger.warning(
-            "Could not transition %s to failed (already transitioned?)", order_id
-        )
-    try:
-        await _send_dns_failure_alert(order_id, domain)
-    except Exception as exc:
-        logger.error("Failed to send DNS failure alert for %s: %s", order_id, exc)
-
-
-def _schedule_dns_retry(
-    *,
-    pool,
-    order_id: str,
-    domain: str,
-    opensrs,
-    cloudflare,
-    encryption_key: str,
-    retry_count: int,
-) -> None:
-    if retry_count > len(_DNS_RETRY_DELAYS_SECONDS):
-        logger.error(
-            "DNS retry limit reached for %s, transitioning to failed", order_id
-        )
-        asyncio.create_task(_handle_dns_retry_exhaustion(pool, order_id, domain))
-        return
-
-    delay = _DNS_RETRY_DELAYS_SECONDS[retry_count - 1]
-    asyncio.create_task(
-        _retry_dns_setup_after_delay(
-            pool=pool,
-            order_id=order_id,
-            opensrs=opensrs,
-            cloudflare=cloudflare,
-            encryption_key=encryption_key,
-            delay_seconds=delay,
-        )
-    )
-
-
-async def _retry_dns_setup_after_delay(
-    *,
-    pool,
-    order_id: str,
-    opensrs,
-    cloudflare,
-    encryption_key: str,
-    delay_seconds: int,
-) -> None:
-    await asyncio.sleep(delay_seconds)
-    try:
-        await retry_dns_setup(
-            pool=pool,
-            order_id=order_id,
-            opensrs=opensrs,
-            cloudflare=cloudflare,
-            encryption_key=encryption_key,
-        )
-    except Exception as exc:
-        logger.error("Scheduled DNS retry failed for %s: %s", order_id, exc)
-
-
-async def _mark_dns_pending(
-    *,
-    pool,
-    order_id: str,
-    domain: str,
-    error_msg: str,
-    opensrs,
-    cloudflare,
-    encryption_key: str,
-    **fields,
-) -> dict:
-    # Bug 6 fix: combine retry_count increment and status update in one call
-    # by passing retry_count as a raw SQL expression via the dynamic fields.
-    # We use a single UPDATE to atomically increment retry_count and set status.
-    async with pool.acquire() as conn:
-        retry_count = await conn.fetchval(
-            "SELECT retry_count FROM orders WHERE id = $1", order_id
-        )
-    if retry_count is None:
-        raise ValueError(f"Order {order_id} not found")
-
-    new_retry_count = retry_count + 1
-    updated_order = await update_order_status(
-        pool,
-        order_id,
-        "dns_pending",
-        error_msg=error_msg,
-        retry_count=new_retry_count,
-        **fields,
-    )
-    _schedule_dns_retry(
-        pool=pool,
-        order_id=order_id,
-        domain=domain,
-        opensrs=opensrs,
-        cloudflare=cloudflare,
-        encryption_key=encryption_key,
-        retry_count=new_retry_count,
-    )
-    return updated_order
 
 
 async def _send_refund_email_if_possible(order: dict) -> None:
@@ -185,178 +54,8 @@ async def _send_refund_email_if_possible(order: dict) -> None:
     )
 
 
-async def _complete_dns_setup(
-    *,
-    pool,
-    order: dict,
-    opensrs,
-    cloudflare,
-    encryption_key: str,
-) -> dict:
-    order_id = order["id"]
-    domain = (
-        f"{order['domain']}.{order['tld']}"
-        if "." not in order["domain"]
-        else order["domain"]
-    )
-
-    # Bug 7 fix: use atomic status transition from dns_pending to setting_dns.
-    # If another retry task already transitioned the status, this will raise
-    # ValueError and the caller (retry_dns_setup) will propagate it.
-    if order["status"] == "dns_pending":
-        order = await update_order_status(pool, order_id, "setting_dns", error_msg=None)
-
-    zone_id = order.get("cloudflare_zone_id")
-    nameservers = order.get("nameservers")
-
-    # Bug 4 fix: check for existing zone before creating a new one
-    if not zone_id:
-        try:
-            existing_zone = await cloudflare.get_zone_by_name(domain)
-            if existing_zone:
-                logger.info(
-                    "Found existing Cloudflare zone for %s: %s",
-                    domain,
-                    existing_zone["zone_id"],
-                )
-                zone_id = existing_zone["zone_id"]
-                nameservers = existing_zone["nameservers"]
-            else:
-                zone_result = await cloudflare.create_zone(domain)
-                zone_id = zone_result["zone_id"]
-                nameservers = zone_result["nameservers"]
-        except Exception as exc:
-            logger.error("Cloudflare zone creation failed for %s: %s", domain, exc)
-            return await _mark_dns_pending(
-                pool=pool,
-                order_id=order_id,
-                domain=domain,
-                error_msg=f"Cloudflare zone creation failed: {exc}",
-                opensrs=opensrs,
-                cloudflare=cloudflare,
-                encryption_key=encryption_key,
-            )
-
-        order = await update_order_status(
-            pool,
-            order_id,
-            "setting_dns",
-            cloudflare_zone_id=zone_id,
-            nameservers=nameservers,
-            error_msg=None,
-        )
-
-    # Non-fatal: nameservers may already be applied, but retrying is harmless.
-    # Domains are registered locked (f_lock_domain=1), so we must unlock
-    # before updating nameservers, then re-lock after.
-    if nameservers:
-        try:
-            await asyncio.to_thread(opensrs.unlock_domain, domain)
-            await asyncio.to_thread(opensrs.update_nameservers, domain, nameservers)
-        except Exception as exc:
-            logger.warning(
-                "Nameserver update failed for %s (non-fatal): %s", domain, exc
-            )
-        finally:
-            try:
-                await asyncio.to_thread(opensrs.lock_domain, domain)
-            except Exception as exc:
-                logger.warning(
-                    "Re-lock failed for %s (non-fatal): %s", domain, exc
-                )
-
-    # Bug 5 fix: if the order already has an encrypted token in the DB,
-    # skip token creation (it was created on a previous attempt that failed
-    # after token creation but before the DB update to 'complete').
-    dns_token = None
-    current_order = await get_order(pool, order_id)
-    if current_order and current_order.get("cloudflare_api_token"):
-        logger.info(
-            "Order %s already has a Cloudflare token, skipping creation", order_id
-        )
-        encrypted_token = current_order["cloudflare_api_token"]
-        from instadomain.encryption import decrypt
-
-        try:
-            dns_token = decrypt(encrypted_token, encryption_key)
-        except Exception:
-            pass
-    else:
-        try:
-            dns_token = await cloudflare.create_dns_token(zone_id, domain)
-        except Exception as exc:
-            logger.error("DNS token creation failed for %s: %s", domain, exc)
-            return await _mark_dns_pending(
-                pool=pool,
-                order_id=order_id,
-                domain=domain,
-                error_msg=f"DNS token creation failed: {exc}",
-                opensrs=opensrs,
-                cloudflare=cloudflare,
-                encryption_key=encryption_key,
-                cloudflare_zone_id=zone_id,
-                nameservers=nameservers,
-            )
-        encrypted_token = encrypt(dns_token, encryption_key)
-
-    completed_order = await update_order_status(
-        pool,
-        order_id,
-        "complete",
-        cloudflare_zone_id=zone_id,
-        cloudflare_api_token=encrypted_token,
-        nameservers=nameservers,
-        error_msg=None,
-    )
-
-    await send_purchase_success_email(
-        to_email=completed_order.get("email"),
-        domain=domain,
-        dns_token=dns_token,
-        nameservers=nameservers or [],
-    )
-    return completed_order
-
-
-async def retry_dns_setup(
-    *,
-    pool,
-    order_id: str,
-    opensrs,
-    cloudflare,
-    encryption_key: str,
-) -> dict:
-    """Retry DNS setup for an order whose domain is already registered."""
-    order = await get_order(pool, order_id)
-    if order is None:
-        raise ValueError(f"Order {order_id} not found")
-    if order["status"] not in {"setting_dns", "dns_pending"}:
-        # Bug 7: if the status is no longer a DNS retry state, another task
-        # already handled it (or it was moved to failed/complete). Return
-        # silently instead of raising, since this is expected in concurrent
-        # retry scenarios.
-        logger.info(
-            "Order %s is in status '%s', skipping DNS retry",
-            order_id,
-            order["status"],
-        )
-        return order
-    return await _complete_dns_setup(
-        pool=pool,
-        order=order,
-        opensrs=opensrs,
-        cloudflare=cloudflare,
-        encryption_key=encryption_key,
-    )
-
-
 async def fulfill_order(
-    *,
-    pool,
-    order_id: str,
-    opensrs,
-    cloudflare,
-    encryption_key: str,
+    *, pool, order_id: str, opensrs, cloudflare, encryption_key: str,
 ) -> dict:
     """Orchestrate domain registration and DNS setup after payment.
 
@@ -391,23 +90,17 @@ async def fulfill_order(
     registrant_contact = order.get("registrant_contact")
     if isinstance(registrant_contact, str):
         import json as _json
-
         registrant_contact = _json.loads(registrant_contact)
 
-    # Reject orders missing registrant contact (e.g. pre-migration orders).
-    # Falling back to DEFAULT_CONTACT would register in InstaDomain's name,
-    # violating ICANN registrant accuracy requirements.
+    # Reject orders missing registrant contact
     if registrant_contact is None:
         logger.error("Order %s has no registrant contact, cannot register", order_id)
         return await update_order_status(
-            pool,
-            order_id,
-            "failed",
+            pool, order_id, "failed",
             error_msg="Missing registrant contact information",
         )
 
-    # Step 1: Register domain at OpenSRS with placeholder nameservers
-    # OpenSRS client is sync -- run in thread to avoid blocking the event loop
+    # Step 1: Register domain at OpenSRS
     try:
         reg_result = await asyncio.to_thread(
             opensrs.register,
@@ -419,46 +112,10 @@ async def fulfill_order(
         )
     except Exception as exc:
         logger.error("OpenSRS registration failed for %s: %s", domain, exc)
-        error_msg = f"OpenSRS registration failed: {exc}"
-        is_crypto = order.get("payment_method") == "x402"
-
-        if is_crypto:
-            # Crypto payments are irreversible. Alert for manual refund.
-            logger.critical(
-                "Registration failed AFTER crypto payment for order %s domain %s",
-                order_id,
-                domain,
-            )
-            amount_usdc = f"{order.get('amount_cents', 0) / 100:.2f}"
-            try:
-                await send_crypto_refund_alert(
-                    order_id=order_id,
-                    domain=domain,
-                    amount_usdc=amount_usdc,
-                    payer_address=order.get("x402_payer_address"),
-                    tx_hash=order.get("x402_tx_hash"),
-                    error_msg=error_msg,
-                )
-            except Exception as alert_exc:
-                logger.error(
-                    "Failed to send crypto refund alert for %s: %s",
-                    order_id,
-                    alert_exc,
-                )
-        elif payment_intent:
-            # Stripe: issue automatic refund
-            try:
-                await asyncio.to_thread(issue_refund, payment_intent)
-                logger.info("Refund issued for payment_intent=%s", payment_intent)
-                await _send_refund_email_if_possible(order)
-            except Exception as refund_exc:
-                logger.error("Refund failed for %s: %s", payment_intent, refund_exc)
-
-        return await update_order_status(
-            pool,
-            order_id,
-            "failed",
-            error_msg=error_msg,
+        return await _handle_registration_failure(
+            pool=pool, order_id=order_id, order=order,
+            domain=domain, error_msg=f"OpenSRS registration failed: {exc}",
+            payment_intent=payment_intent,
         )
 
     # Step 2: Transition to setting_dns and create Cloudflare zone
@@ -471,9 +128,7 @@ async def fulfill_order(
             logger.warning("Could not parse expiry date: %s", expiry_str)
 
     await update_order_status(
-        pool,
-        order_id,
-        "setting_dns",
+        pool, order_id, "setting_dns",
         opensrs_order_id=reg_result.get("order_id", ""),
         domain_expires_at=expiry_dt,
     )
@@ -483,4 +138,42 @@ async def fulfill_order(
         opensrs=opensrs,
         cloudflare=cloudflare,
         encryption_key=encryption_key,
+    )
+
+
+async def _handle_registration_failure(
+    *, pool, order_id: str, order: dict, domain: str,
+    error_msg: str, payment_intent: str | None,
+) -> dict:
+    """Handle OpenSRS registration failure: refund and mark failed."""
+    is_crypto = order.get("payment_method") == "x402"
+
+    if is_crypto:
+        logger.critical(
+            "Registration failed AFTER crypto payment for order %s domain %s",
+            order_id, domain,
+        )
+        amount_usdc = f"{order.get('amount_cents', 0) / 100:.2f}"
+        try:
+            await send_crypto_refund_alert(
+                order_id=order_id, domain=domain, amount_usdc=amount_usdc,
+                payer_address=order.get("x402_payer_address"),
+                tx_hash=order.get("x402_tx_hash"),
+                error_msg=error_msg,
+            )
+        except Exception as alert_exc:
+            logger.error(
+                "Failed to send crypto refund alert for %s: %s",
+                order_id, alert_exc,
+            )
+    elif payment_intent:
+        try:
+            await asyncio.to_thread(issue_refund, payment_intent)
+            logger.info("Refund issued for payment_intent=%s", payment_intent)
+            await _send_refund_email_if_possible(order)
+        except Exception as refund_exc:
+            logger.error("Refund failed for %s: %s", payment_intent, refund_exc)
+
+    return await update_order_status(
+        pool, order_id, "failed", error_msg=error_msg,
     )

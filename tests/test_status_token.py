@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
-from instadomain import api as api_module
+from instadomain import routes_manage as manage_module
 from instadomain.api import create_app
 
 
@@ -34,8 +34,8 @@ def test_status_allows_retrieving_dns_token_multiple_times(monkeypatch):
     async def fake_get_order(_pool, _order_id):
         return order
 
-    monkeypatch.setattr(api_module, "get_order", fake_get_order)
-    monkeypatch.setattr(api_module, "decrypt", lambda token, _key: f"plain:{token}")
+    monkeypatch.setattr(manage_module, "get_order", fake_get_order)
+    monkeypatch.setattr(manage_module, "decrypt", lambda token, _key: f"plain:{token}")
 
     with TestClient(app) as client:
         first = client.get("/status/ord_123")

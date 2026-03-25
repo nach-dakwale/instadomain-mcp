@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi.testclient import TestClient
 
-from instadomain import api as api_module
+from instadomain import routes_x402 as x402_module
 from instadomain.api import create_app
 
 
@@ -31,8 +31,8 @@ def test_pay_rejects_non_pending_x402_order(monkeypatch):
     async def fake_get_pending_x402_order(_pool, _order_id):
         raise AssertionError("pending x402 lookup should not run for non-pending orders")
 
-    monkeypatch.setattr(api_module, "get_order", fake_get_order)
-    monkeypatch.setattr(api_module, "get_pending_x402_order", fake_get_pending_x402_order)
+    monkeypatch.setattr(x402_module, "get_order", fake_get_order)
+    monkeypatch.setattr(x402_module, "get_pending_x402_order", fake_get_pending_x402_order)
 
     with TestClient(app) as client:
         response = client.get("/pay/ord_paid")

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
-from instadomain import api as api_module
+from instadomain import routes_manage as manage_module
 from instadomain.api import create_app
 
 
@@ -45,13 +45,13 @@ def test_send_expiration_reminders_sends_and_reports_errors(monkeypatch):
         if kwargs["domain"] == "broken.net":
             raise RuntimeError("smtp down")
 
-    monkeypatch.setattr(api_module, "get_expiring_orders", fake_get_expiring_orders)
+    monkeypatch.setattr(manage_module, "get_expiring_orders", fake_get_expiring_orders)
     monkeypatch.setattr(
-        api_module,
+        manage_module,
         "send_expiration_reminder_email",
         fake_send_expiration_reminder_email,
     )
-    monkeypatch.setattr(api_module, "Settings", lambda: type("S", (), {"backend_url": "https://backend.test"})())
+    monkeypatch.setattr(manage_module, "Settings", lambda: type("S", (), {"backend_url": "https://backend.test"})())
     monkeypatch.setenv("INSTADOMAIN_ADMIN_KEY", "secret")
 
     with TestClient(app) as client:

@@ -1,22 +1,17 @@
+"""OpenSRS XML API client for domain registration."""
 from __future__ import annotations
 
-import hashlib
 import secrets
 import string
-import xml.etree.ElementTree as ET
-from xml.sax.saxutils import escape, quoteattr
 
 import httpx
 
-
-class OpenSRSError(Exception):
-    """Error returned by the OpenSRS API."""
-
-    def __init__(self, code: int, message: str):
-        self.code = code
-        self.message = message
-        super().__init__(f"OpenSRS error {code}: {message}")
-
+from instadomain.opensrs_xml import (
+    OpenSRSError,  # noqa: F401 - re-exported for existing imports
+    build_envelope,
+    parse_response,
+    sign,
+)
 
 # Default WHOIS privacy contact
 DEFAULT_CONTACT = {
@@ -53,107 +48,9 @@ class OpenSRSClient:
         alphabet = string.ascii_letters + string.digits + "!@#$"
         return "".join(secrets.choice(alphabet) for _ in range(length))
 
-    def _sign(self, xml_body: str) -> str:
-        """Compute MD5 signature: md5(md5(xml + key) + key)."""
-        inner = hashlib.md5((xml_body + self.api_key).encode()).hexdigest()
-        return hashlib.md5((inner + self.api_key).encode()).hexdigest()
-
-    def _dict_to_xml(self, d: dict | list) -> str:
-        """Convert a dict or list to OpenSRS XML format (dt_assoc/dt_array)."""
-        if isinstance(d, list):
-            items = []
-            for i, v in enumerate(d):
-                if isinstance(v, (dict, list)):
-                    items.append(f'<item key="{i}">{self._dict_to_xml(v)}</item>')
-                elif v is None:
-                    items.append(f'<item key="{i}"></item>')
-                else:
-                    items.append(f'<item key="{i}">{escape(str(v))}</item>')
-            return f"<dt_array>{' '.join(items)}</dt_array>"
-
-        items = []
-        for key, value in d.items():
-            attr_key = quoteattr(str(key))
-            if isinstance(value, (dict, list)):
-                items.append(f'<item key={attr_key}>{self._dict_to_xml(value)}</item>')
-            elif value is None:
-                items.append(f'<item key={attr_key}></item>')
-            else:
-                items.append(f'<item key={attr_key}>{escape(str(value))}</item>')
-        return f"<dt_assoc>{' '.join(items)}</dt_assoc>"
-
-    def _build_envelope(self, action: str, obj: str, attrs: dict) -> str:
-        """Build an OpenSRS XML request envelope."""
-        attrs_xml = self._dict_to_xml(attrs)
-        return (
-            '<?xml version="1.0" encoding="UTF-8" standalone="no"?>'
-            "<!DOCTYPE OPS_envelope SYSTEM \"ops.dtd\">"
-            "<OPS_envelope>"
-            "<header><version>0.9</version></header>"
-            "<body>"
-            "<data_block>"
-            "<dt_assoc>"
-            f'<item key="protocol">XCP</item>'
-            f'<item key="action">{action}</item>'
-            f'<item key="object">{obj}</item>'
-            f'<item key="attributes">{attrs_xml}</item>'
-            "</dt_assoc>"
-            "</data_block>"
-            "</body>"
-            "</OPS_envelope>"
-        )
-
-    def _parse_assoc(self, elem: ET.Element) -> dict:
-        """Parse a dt_assoc element into a dict."""
-        result = {}
-        for item in elem.findall("item"):
-            key = item.get("key")
-            child_assoc = item.find("dt_assoc")
-            child_array = item.find("dt_array")
-            if child_assoc is not None:
-                result[key] = self._parse_assoc(child_assoc)
-            elif child_array is not None:
-                result[key] = self._parse_array(child_array)
-            else:
-                result[key] = item.text or ""
-        return result
-
-    def _parse_array(self, elem: ET.Element) -> list:
-        """Parse a dt_array element into a list."""
-        items = []
-        for item in elem.findall("item"):
-            child_assoc = item.find("dt_assoc")
-            child_array = item.find("dt_array")
-            if child_assoc is not None:
-                items.append(self._parse_assoc(child_assoc))
-            elif child_array is not None:
-                items.append(self._parse_array(child_array))
-            else:
-                items.append(item.text or "")
-        return items
-
-    def _parse_response(self, xml_text: str) -> dict:
-        """Parse an OpenSRS XML response into a dict.
-
-        Raises OpenSRSError if the response indicates failure.
-        """
-        root = ET.fromstring(xml_text)
-        body_assoc = root.find(".//body/data_block/dt_assoc")
-        if body_assoc is None:
-            raise OpenSRSError(0, "Malformed response: no data_block dt_assoc found")
-
-        data = self._parse_assoc(body_assoc)
-
-        if data.get("is_success") != "1":
-            code = int(data.get("response_code", 0))
-            message = data.get("response_text", "Unknown error")
-            raise OpenSRSError(code, message)
-
-        return data
-
     def _post(self, xml_body: str) -> httpx.Response:
         """Sign and send an XML request to the OpenSRS API."""
-        signature = self._sign(xml_body)
+        signature = sign(xml_body, self.api_key)
         headers = {
             "Content-Type": "text/xml",
             "X-Username": self.reseller_username,
@@ -167,9 +64,9 @@ class OpenSRSClient:
         Returns True if the domain is available, False otherwise.
         """
         attrs = {"domain": domain}
-        xml_body = self._build_envelope("LOOKUP", "DOMAIN", attrs)
+        xml_body = build_envelope("LOOKUP", "DOMAIN", attrs)
         response = self._post(xml_body)
-        data = self._parse_response(response.text)
+        data = parse_response(response.text)
         attrs_data = data.get("attributes", {})
         return attrs_data.get("status") == "available"
 
@@ -179,11 +76,10 @@ class OpenSRSClient:
         Returns the price in cents.
         """
         attrs = {"domain": domain, "period": 1}
-        xml_body = self._build_envelope("GET_PRICE", "DOMAIN", attrs)
+        xml_body = build_envelope("GET_PRICE", "DOMAIN", attrs)
         response = self._post(xml_body)
-        data = self._parse_response(response.text)
+        data = parse_response(response.text)
 
-        # OpenSRS returns price as a string like "8.90" (dollars)
         attrs_data = data.get("attributes", {})
         price_str = attrs_data.get("price", "0")
         return int(round(float(price_str) * 100))
@@ -243,9 +139,9 @@ class OpenSRSClient:
             "contact_set": contact_set,
         }
 
-        xml_body = self._build_envelope("SW_REGISTER", "DOMAIN", attrs)
+        xml_body = build_envelope("SW_REGISTER", "DOMAIN", attrs)
         response = self._post(xml_body)
-        data = self._parse_response(response.text)
+        data = parse_response(response.text)
 
         attrs_data = data.get("attributes", {})
         return {
@@ -269,9 +165,9 @@ class OpenSRSClient:
             "currentexpirationyear": str(current_expiry_year),
         }
 
-        xml_body = self._build_envelope("RENEW", "DOMAIN", attrs)
+        xml_body = build_envelope("RENEW", "DOMAIN", attrs)
         response = self._post(xml_body)
-        data = self._parse_response(response.text)
+        data = parse_response(response.text)
 
         attrs_data = data.get("attributes", {})
         return {
@@ -281,46 +177,27 @@ class OpenSRSClient:
         }
 
     def get_transfer_auth_code(self, domain: str) -> str:
-        """Request the EPP/transfer authorization code for a domain.
-
-        Triggers OpenSRS to send the auth code. Returns the auth code
-        string from the API response.
-        """
-        attrs = {
-            "domain_name": domain,
-        }
-        xml_body = self._build_envelope("SEND_AUTHCODE", "DOMAIN", attrs)
+        """Request the EPP/transfer authorization code for a domain."""
+        attrs = {"domain_name": domain}
+        xml_body = build_envelope("SEND_AUTHCODE", "DOMAIN", attrs)
         response = self._post(xml_body)
-        data = self._parse_response(response.text)
+        data = parse_response(response.text)
         attrs_data = data.get("attributes", {})
-        # OpenSRS returns the auth info in the response attributes
         return attrs_data.get("domain_auth_info", "")
 
     def unlock_domain(self, domain: str) -> None:
-        """Remove the registrar transfer lock from a domain.
-
-        This sets f_lock_domain to 0 so the domain can be transferred
-        to another registrar.
-        """
-        attrs = {
-            "domain": domain,
-            "data": "status",
-            "lock_state": "0",
-        }
-        xml_body = self._build_envelope("MODIFY", "DOMAIN", attrs)
+        """Remove the registrar transfer lock from a domain."""
+        attrs = {"domain": domain, "data": "status", "lock_state": "0"}
+        xml_body = build_envelope("MODIFY", "DOMAIN", attrs)
         response = self._post(xml_body)
-        self._parse_response(response.text)
+        parse_response(response.text)
 
     def lock_domain(self, domain: str) -> None:
         """Apply the registrar transfer lock to a domain."""
-        attrs = {
-            "domain": domain,
-            "data": "status",
-            "lock_state": "1",
-        }
-        xml_body = self._build_envelope("MODIFY", "DOMAIN", attrs)
+        attrs = {"domain": domain, "data": "status", "lock_state": "1"}
+        xml_body = build_envelope("MODIFY", "DOMAIN", attrs)
         response = self._post(xml_body)
-        self._parse_response(response.text)
+        parse_response(response.text)
 
     def update_nameservers(self, domain: str, nameservers: list[str]) -> None:
         """Update the nameservers for a domain."""
@@ -330,7 +207,6 @@ class OpenSRSClient:
             "op_type": "assign",
             "assign_ns": ns_list,
         }
-
-        xml_body = self._build_envelope("ADVANCED_UPDATE_NAMESERVERS", "DOMAIN", attrs)
+        xml_body = build_envelope("ADVANCED_UPDATE_NAMESERVERS", "DOMAIN", attrs)
         response = self._post(xml_body)
-        self._parse_response(response.text)
+        parse_response(response.text)
