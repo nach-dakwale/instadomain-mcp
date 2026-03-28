@@ -2,9 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements-instadomain.txt .
+COPY requirements.lock .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements-instadomain.txt
+    pip install --no-cache-dir -r requirements.lock
 
 COPY config.py .
 COPY domain_lookup.py .
