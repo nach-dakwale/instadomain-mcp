@@ -1,5 +1,7 @@
 # InstaDomain
 
+[![instadomain-mcp MCP server](https://glama.ai/mcp/servers/nach-dakwale/instadomain-mcp/badges/score.svg)](https://glama.ai/mcp/servers/nach-dakwale/instadomain-mcp)
+
 **Domain registration for AI agents.** Check availability, buy domains, and configure DNS without leaving your terminal.
 
 InstaDomain is an MCP server that lets AI coding assistants (Claude Code, Cursor, Windsurf) register domains on your behalf. Pay with Stripe or x402 (USDC on Base). Domains are registered in your name with Cloudflare DNS auto-configured.
