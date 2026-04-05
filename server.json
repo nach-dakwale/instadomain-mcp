@@ -1,0 +1,12 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.nach-dakwale/instadomain",
+  "description": "Domain registration for AI agents. Check availability, buy domains via Stripe or x402 crypto (USDC on Base), and auto-configure Cloudflare DNS. 9 MCP tools for the full domain lifecycle.",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "transport_type": "streamable-http",
+      "url": "https://instadomain.fly.dev/mcp/"
+    }
+  ]
+}
