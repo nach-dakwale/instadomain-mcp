@@ -145,6 +145,7 @@ Domains are registered through OpenSRS (Tucows). You are the legal registrant. I
 
 - **Live server:** https://instadomain.fly.dev
 - **Smithery:** https://smithery.ai/servers/nach-dakwale/instadomain
+- **xpay.tools:** https://xpay.tools/instadomain
 - **MCP endpoint:** https://instadomain.fly.dev/mcp/
 
 ## License
