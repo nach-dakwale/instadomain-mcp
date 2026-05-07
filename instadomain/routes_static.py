@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 
 router = APIRouter()
 
@@ -64,3 +64,8 @@ async def privacy():
 @router.get("/refunds", response_class=HTMLResponse)
 async def refunds():
     return (_STATIC_DIR / "refunds.html").read_text()
+
+
+@router.get("/og.png")
+async def og_image():
+    return FileResponse(_STATIC_DIR / "og.png", media_type="image/png")
