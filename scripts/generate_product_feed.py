@@ -32,6 +32,7 @@ TLDS: list[tuple[str, str, str]] = [
 
 COLUMNS = [
     "id",
+    "mpn",
     "title",
     "description",
     "link",
@@ -54,6 +55,7 @@ def main() -> None:
         for tld, price, description in TLDS:
             writer.writerow({
                 "id": f"domain-{tld}",
+                "mpn": f"INSTADOMAIN-{tld.upper()}-1Y",
                 "title": f".{tld} domain registration",
                 "description": description,
                 "link": HOMEPAGE,
