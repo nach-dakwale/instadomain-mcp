@@ -93,6 +93,7 @@ platformdirs==4.9.4
 pluggy==1.6.0
 propcache==0.4.1
 py-key-value-aio==0.4.4
+pympp==0.7.0
 py-serializable==2.1.0
 pycparser==3.0
 pycryptodome==3.23.0

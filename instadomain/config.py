@@ -33,6 +33,12 @@ class Settings(BaseSettings):
 
     x402_testnet: bool = False
 
+    # MPP (Stripe Machine Payments Protocol) — Shared Payment Tokens via Stripe
+    mpp_network_id: str = ""
+    mpp_secret_key: str = ""
+    mpp_realm: str = "instadomain.fly.dev"
+    mpp_payment_method_types: str = "card,link"
+
     # Affiliate links
     dynadot_affiliate_id: str = "PLACEHOLDER_DYNADOT"
     enable_affiliate_links: bool = True

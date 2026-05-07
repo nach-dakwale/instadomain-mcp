@@ -4,7 +4,7 @@
 
 **Domain registration for AI agents.** Check availability, buy domains, and configure DNS without leaving your terminal.
 
-InstaDomain is an MCP server that lets AI coding assistants (Claude Code, Cursor, Windsurf) register domains on your behalf. Pay with Stripe or x402 (USDC on Base). Domains are registered in your name with Cloudflare DNS auto-configured.
+InstaDomain is an MCP server that lets AI coding assistants (Claude Code, Cursor, Windsurf) register domains on your behalf. Pay with Stripe Checkout, Stripe MPP (Machine Payments Protocol via Shared Payment Tokens), or x402 (USDC on Base). Domains are registered in your name with Cloudflare DNS auto-configured.
 
 ## Why?
 
@@ -15,7 +15,7 @@ With InstaDomain, your AI agent checks availability, shows you the price, and bu
 ## Features
 
 - **Check domains** - single domain with pricing, bulk check up to 50, or AI-generated suggestions
-- **Buy domains** - Stripe checkout (card) or x402 (USDC on Base, no signup required)
+- **Buy domains** - Stripe checkout (card), Stripe MPP (autonomous fiat via Shared Payment Tokens), or x402 (USDC on Base, no signup required)
 - **Automatic DNS** - Cloudflare zone created with scoped API token returned to you
 - **Your domain, your name** - registered as your property, not ours
 - **Transfer out anytime** - EPP auth codes and domain unlock built in
@@ -30,6 +30,7 @@ With InstaDomain, your AI agent checks availability, shows you the price, and bu
 | `check_domains_bulk` | Check up to 50 domains at once |
 | `suggest_domains` | Generate and check domain name ideas for a keyword |
 | `buy_domain` | Purchase via Stripe checkout |
+| `buy_domain_mpp` | Purchase via Stripe MPP (Shared Payment Tokens, fiat-native, no browser) |
 | `buy_domain_crypto` | Purchase via x402 USDC payment |
 | `get_domain_status` | Poll order status until complete |
 | `get_transfer_code` | Get EPP auth code to transfer your domain away |
@@ -108,6 +109,15 @@ InstaDomain accepts x402 payments in USDC on Base. No signup, no API keys. Your 
 
 This enables fully autonomous agents to register domains without human payment intervention.
 
+## MPP (Machine Payments Protocol)
+
+InstaDomain implements [Stripe's Machine Payments Protocol](https://mpp.dev/) so agents can pay with fiat (cards, Link) or stablecoins via Shared Payment Tokens — no browser checkout, no human in the loop.
+
+The flow:
+
+1. `POST /buy/mpp` to create an order — returns a `pay_url`.
+2. `GET /pay/mpp/{order_id}` with an MPP-enabled HTTP client. The first response is HTTP `402` with a `WWW-Authenticate` challenge. The client mints a Shared Payment Token via the advertised Stripe Business Network profile and retries with an `Authorization` header. The server charges the SPT through Stripe and returns the receipt in `Authentication-Info`.
+
 ## REST API
 
 InstaDomain also exposes a REST API for non-MCP integrations:
@@ -116,6 +126,8 @@ InstaDomain also exposes a REST API for non-MCP integrations:
 - `POST /check` - bulk check (up to 50 domains)
 - `GET /suggest?keyword=coffee` - AI-generated domain suggestions
 - `POST /buy` - initiate Stripe purchase
+- `POST /buy/mpp` - initiate MPP (Shared Payment Token) purchase
+- `GET /pay/mpp/{order_id}` - 402-paywalled endpoint (MPP)
 - `GET /status/{order_id}` - check order status
 - `POST /renew/{order_id}` - renew a domain
 

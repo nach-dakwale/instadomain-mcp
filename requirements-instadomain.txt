@@ -9,3 +9,4 @@ cryptography>=42.0,<47
 slowapi>=0.1,<1
 fastmcp>=2.0,<4
 x402[fastapi,evm,httpx]>=2.0,<3
+pympp>=0.7,<1

@@ -162,6 +162,17 @@ async def get_pending_x402_order(pool: asyncpg.Pool, order_id: str) -> dict | No
     return _row_to_dict(row)
 
 
+async def get_pending_mpp_order(pool: asyncpg.Pool, order_id: str) -> dict | None:
+    """Fetch an MPP order that is still awaiting payment."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM orders WHERE id = $1 AND payment_method = 'mpp' "
+            "AND status = 'pending_payment'",
+            order_id,
+        )
+    return _row_to_dict(row)
+
+
 async def get_expiring_orders(pool: asyncpg.Pool, days: int = 90) -> list[dict]:
     """Fetch all completed orders with domains expiring within the given days."""
     async with pool.acquire() as conn:

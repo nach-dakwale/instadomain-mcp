@@ -72,6 +72,7 @@ def create_app() -> FastAPI:
         app.state.encryption_key = settings.encryption_key
 
         _configure_x402(app, settings)
+        _configure_mpp(app, settings)
 
         # Recover orders stuck in dns_pending/setting_dns from before restart
         from instadomain.fulfillment import retry_dns_setup
@@ -108,15 +109,43 @@ def create_app() -> FastAPI:
     from instadomain.routes_check import router as check_router
     from instadomain.routes_buy import router as buy_router
     from instadomain.routes_x402 import router as x402_router
+    from instadomain.routes_mpp import router as mpp_router
     from instadomain.routes_manage import router as manage_router
 
     app.include_router(static_router)
     app.include_router(check_router)
     app.include_router(buy_router)
     app.include_router(x402_router)
+    app.include_router(mpp_router)
     app.include_router(manage_router)
 
     return app
+
+
+def _configure_mpp(app: FastAPI, settings: Settings) -> None:
+    """Set up MPP (Stripe Machine Payments Protocol) state on the app."""
+    app.state.mpp_enabled = False
+    app.state.mpp_network_id = settings.mpp_network_id
+    app.state.mpp_realm = settings.mpp_realm
+    app.state.mpp_payment_method_types = [
+        s.strip() for s in settings.mpp_payment_method_types.split(",") if s.strip()
+    ]
+    app.state.stripe_secret_key = settings.stripe_secret_key
+
+    if not (settings.mpp_network_id and settings.stripe_secret_key):
+        return
+
+    # MPP_SECRET_KEY binds challenge IDs via HMAC. If unset, generate one
+    # at startup; this means challenges issued before a restart won't verify
+    # afterward, which is acceptable given MPP's short challenge TTL.
+    import os
+    app.state.mpp_secret_key = settings.mpp_secret_key or os.urandom(32).hex()
+    app.state.mpp_enabled = True
+    logger.info(
+        "MPP payments enabled (network_id=%s, methods=%s)",
+        settings.mpp_network_id[:10] + "...",
+        app.state.mpp_payment_method_types,
+    )
 
 
 def _configure_x402(app: FastAPI, settings: Settings) -> None:
