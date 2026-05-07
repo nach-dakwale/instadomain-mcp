@@ -139,6 +139,7 @@ Domains are registered through OpenSRS (Tucows). You are the legal registrant. I
 
 - [Terms of Service](https://instadomain.fly.dev/terms)
 - [Privacy Policy](https://instadomain.fly.dev/privacy)
+- [Refund and Return Policy](https://instadomain.fly.dev/refunds)
 
 ## Links
 

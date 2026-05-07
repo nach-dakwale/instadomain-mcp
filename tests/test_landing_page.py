@@ -22,3 +22,17 @@ def test_root_serves_landing_page():
     assert "You keep building." in response.text
     assert "https://instadomain.fly.dev/mcp/" in response.text
     assert "GET /check/{domain}" in response.text
+    assert 'href="/refunds"' in response.text
+
+
+def test_refunds_page_renders():
+    app = create_app()
+    app.router.lifespan_context = _noop_lifespan
+
+    with TestClient(app) as client:
+        response = client.get("/refunds")
+
+    assert response.status_code == 200
+    assert "Refund and Return Policy" in response.text
+    assert "Stripe MPP" in response.text
+    assert "x402" in response.text

@@ -1,4 +1,4 @@
-"""Static page routes: health, index, success, cancel, terms, privacy, llms.txt, mcp.json."""
+"""Static page routes: health, index, success, cancel, terms, privacy, refunds, llms.txt, mcp.json."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -59,3 +59,8 @@ async def terms():
 @router.get("/privacy", response_class=HTMLResponse)
 async def privacy():
     return (_STATIC_DIR / "privacy.html").read_text()
+
+
+@router.get("/refunds", response_class=HTMLResponse)
+async def refunds():
+    return (_STATIC_DIR / "refunds.html").read_text()

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refund and Return Policy - InstaDomain</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #1a1a1a;
+            line-height: 1.7;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 48px 24px;
+            background: #fff;
+        }
+        h1 { font-size: 1.75rem; margin-bottom: 8px; }
+        .effective { color: #666; font-size: 0.9rem; margin-bottom: 40px; }
+        h2 { font-size: 1.15rem; margin-top: 32px; margin-bottom: 12px; }
+        p, li { font-size: 0.95rem; margin-bottom: 12px; }
+        ul { padding-left: 24px; margin-bottom: 16px; }
+        a { color: #2563eb; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e5e5; font-size: 0.85rem; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Refund and Return Policy</h1>
+    <p class="effective">Effective date: May 7, 2026</p>
+
+    <p>This Refund and Return Policy explains when InstaDomain issues refunds for domain registrations and renewals, and how to request one. It supplements the refund clause in our <a href="/terms">Terms of Service</a>; if there is any conflict, this policy governs.</p>
+
+    <h2>1. Domain registrations are final once registered</h2>
+    <p>Domain names are unique digital assets registered to you with the registry of the relevant top-level domain (TLD) through OpenSRS/Tucows, our ICANN-accredited registrar of record. Once a domain has been successfully registered in your name, the wholesale fee is paid to the registry and is non-refundable. As a result, <strong>InstaDomain does not offer refunds, exchanges, or returns on successfully registered domains</strong>, including in cases of buyer's remorse, typos, or change of mind.</p>
+    <p>You retain full ownership of the domain for the duration of its registration term and may transfer it to another registrar at any time after the 60-day ICANN lock period.</p>
+
+    <h2>2. Automatic refunds when registration fails</h2>
+    <p>If we charge you for a domain but registration cannot be completed — for example, the domain becomes unavailable between availability check and registry submission, the registry rejects the order, or a fulfillment error occurs on our end — you will receive an <strong>automatic full refund</strong> to your original payment method.</p>
+    <ul>
+        <li><strong>Stripe (card / Apple Pay / Link):</strong> refunded to the original card. Funds typically reappear in 5–10 business days, depending on your card issuer.</li>
+        <li><strong>Stripe MPP (Shared Payment Tokens):</strong> refunded through the same Stripe PaymentIntent that charged the SPT, back to the underlying payment method on the agent's MPP profile. Same 5–10 business day window.</li>
+        <li><strong>x402 (USDC on Base):</strong> on-chain payments are non-reversible by the protocol, so we issue a manual on-chain refund to the originating wallet address within 48 hours of the failure being detected.</li>
+    </ul>
+    <p>You do not need to file a request — the refund is triggered by our fulfillment system as soon as the failure is recorded.</p>
+
+    <h2>3. Renewals</h2>
+    <p>Domain renewals are processed at your direction (auto-renew or explicit renewal). Once a renewal is submitted to the registry and accepted, the renewal fee is non-refundable for the same reason as the initial registration. If a renewal payment is captured but the registry rejects it, you will receive an automatic refund as described in section 2.</p>
+
+    <h2>4. WHOIS privacy and DNS hosting</h2>
+    <p>WHOIS privacy and Cloudflare DNS hosting are bundled with every registration at no additional charge and are therefore not separately refundable. Disabling either does not generate a credit.</p>
+
+    <h2>5. Chargebacks and disputes</h2>
+    <p>If you believe a charge was made in error, contact us first at <a href="mailto:nach@nachdakwale.com">nach@nachdakwale.com</a> with your order ID and we will investigate within two business days. Initiating a chargeback before contacting us may result in the corresponding domain being suspended or transferred back to InstaDomain pending resolution, since the registration fee will have been clawed back from us by the registry.</p>
+
+    <h2>6. Fraudulent or unauthorized charges</h2>
+    <p>If you discover that an InstaDomain charge was made without your authorization (for example, a stolen card, a compromised agent credential, or an unauthorized SPT), email us immediately at <a href="mailto:nach@nachdakwale.com">nach@nachdakwale.com</a>. We will refund any unauthorized charge in full and, where possible, transfer the affected domain to your control or release it back to the registry.</p>
+
+    <h2>7. How to request a refund (manual cases)</h2>
+    <p>For situations not covered by automatic refunds — such as a fulfillment error we missed, a duplicate charge, or a registration that completed but is materially different from what was ordered — email <a href="mailto:nach@nachdakwale.com">nach@nachdakwale.com</a> with:</p>
+    <ul>
+        <li>Your order ID (begins with <code>ord_</code>).</li>
+        <li>The domain name in question.</li>
+        <li>A short description of the issue.</li>
+    </ul>
+    <p>We aim to respond within two business days and resolve approved refund requests within five business days.</p>
+
+    <h2>8. Returns</h2>
+    <p>Domain names are not physical goods and cannot be "returned" in the traditional sense. If you want to stop using a domain registered through InstaDomain, you can either let it expire (auto-renew can be disabled by request), transfer it to another registrar, or sell it on a secondary market. None of these actions generate a refund of the original registration fee.</p>
+
+    <h2>9. Changes to this policy</h2>
+    <p>We may update this policy from time to time. The current version will always be available at this URL, and material changes will take effect prospectively from the new effective date.</p>
+
+    <h2>10. Contact</h2>
+    <p>For refund questions or to file a request, contact <a href="mailto:nach@nachdakwale.com">nach@nachdakwale.com</a>.</p>
+
+    <div class="footer">
+        <p>InstaDomain &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a></p>
+    </div>
+</body>
+</html>
