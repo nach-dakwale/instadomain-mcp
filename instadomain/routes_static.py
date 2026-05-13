@@ -69,3 +69,8 @@ async def refunds():
 @router.get("/og.png")
 async def og_image():
     return FileResponse(_STATIC_DIR / "og.png", media_type="image/png")
+
+
+@router.get("/tiktokClCiYUj0VJTwnwirfKCsSIRSQGDfUcYE.txt")
+async def tiktok_verification():
+    return PlainTextResponse((_STATIC_DIR / "tiktokClCiYUj0VJTwnwirfKCsSIRSQGDfUcYE.txt").read_text())
