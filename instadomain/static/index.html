@@ -346,6 +346,34 @@
         }
         .api-link:hover { color: var(--g); border-color: var(--g); }
 
+        /* ===== FAQ ===== */
+        .faq { display: grid; gap: 2px; }
+        .faq-item {
+            border: 1px solid var(--b1); border-radius: 3px;
+            background: var(--s1); overflow: hidden;
+            transition: border-color 0.15s;
+        }
+        .faq-item:hover { border-color: var(--b2); }
+        .faq-q {
+            width: 100%; background: none; border: none;
+            padding: 18px 20px; text-align: left; cursor: pointer;
+            font-family: var(--mono); font-size: 13px; font-weight: 600;
+            color: var(--t1); display: flex; justify-content: space-between;
+            align-items: center; gap: 16px;
+        }
+        .faq-q::after {
+            content: "+"; color: var(--g); font-size: 16px;
+            font-weight: 400; flex-shrink: 0; transition: transform 0.15s;
+        }
+        .faq-item.open .faq-q::after { transform: rotate(45deg); }
+        .faq-a {
+            display: none; padding: 0 20px 18px;
+            color: var(--t2); font-size: 12px; line-height: 1.75;
+            border-top: 1px solid var(--b1);
+        }
+        .faq-item.open .faq-a { display: block; }
+        .faq-a code { color: var(--g); }
+
         /* ===== FOOTER ===== */
         footer { padding: 20px 0 40px; }
         .ft {
@@ -387,6 +415,7 @@
                 <a href="#tools">tools</a>
                 <a href="#pricing">pricing</a>
                 <a href="#api">api</a>
+                <a href="#faq">faq</a>
                 <a href="/docs">docs</a>
             </div>
         </header>
@@ -621,6 +650,38 @@
                     </div>
                 </div>
             </section>
+            <hr class="sep">
+
+            <section id="faq">
+                <div class="sh">faq</div>
+                <h2 class="st">Common questions.</h2>
+                <div class="faq">
+                    <div class="faq-item">
+                        <button class="faq-q" type="button">Do I actually own the domain?</button>
+                        <div class="faq-a">
+                            Yes. You are the legal registrant on record with OpenSRS (Tucows). InstaDomain is listed as admin/tech contact for service management only. You hold all ICANN rights. WHOIS privacy is enabled by default so your details stay private.
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-q" type="button">How does DNS get set up after I pay?</button>
+                        <div class="faq-a">
+                            After payment clears, InstaDomain automatically creates a Cloudflare DNS zone and points your domain at Cloudflare's nameservers. A scoped API token is returned so your AI agent can manage DNS records directly. No manual configuration needed.
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-q" type="button">Can I transfer my domain to another registrar?</button>
+                        <div class="faq-a">
+                            Yes, anytime. Use <code>get_transfer_code</code> to get your EPP auth code and <code>unlock_domain</code> to remove the registrar lock, then initiate the transfer at your destination registrar (Namecheap, Cloudflare Registrar, etc.). ICANN requires a 60-day lock after initial registration before transfers are allowed — that's an ICANN rule, not us.
+                        </div>
+                    </div>
+                    <div class="faq-item">
+                        <button class="faq-q" type="button">What if I want DNS somewhere other than Cloudflare?</button>
+                        <div class="faq-a">
+                            Update the nameservers at the registrar level. The Cloudflare zone is created for convenience and is not required. You can point the domain at any DNS provider after registration.
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
 
         <footer>
@@ -641,12 +702,21 @@
     (function () {
         var btn = document.getElementById("copy-btn");
         var url = document.getElementById("mcp-url");
-        if (!btn || !url || !navigator.clipboard) return;
-        btn.addEventListener("click", function () {
-            navigator.clipboard.writeText(url.textContent || "").then(function () {
-                var orig = btn.textContent;
-                btn.textContent = "copied";
-                setTimeout(function () { btn.textContent = orig; }, 1600);
+        if (btn && url && navigator.clipboard) {
+            btn.addEventListener("click", function () {
+                navigator.clipboard.writeText(url.textContent || "").then(function () {
+                    var orig = btn.textContent;
+                    btn.textContent = "copied";
+                    setTimeout(function () { btn.textContent = orig; }, 1600);
+                });
+            });
+        }
+        document.querySelectorAll(".faq-q").forEach(function (q) {
+            q.addEventListener("click", function () {
+                var item = q.closest(".faq-item");
+                var isOpen = item.classList.contains("open");
+                document.querySelectorAll(".faq-item.open").forEach(function (el) { el.classList.remove("open"); });
+                if (!isOpen) item.classList.add("open");
             });
         });
     }());
