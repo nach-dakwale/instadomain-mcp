@@ -1,6 +1,8 @@
 """MCP tools for domain purchasing (Stripe and crypto)."""
 from __future__ import annotations
 
+import webbrowser
+
 import httpx
 
 from instadomain.mcp_server import BACKEND_URL, mcp
@@ -71,7 +73,11 @@ async def buy_domain(
         if resp.status_code == 400:
             return resp.json()
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        checkout_url = data.get("checkout_url")
+        if checkout_url:
+            webbrowser.open(checkout_url)
+        return data
 
 
 @mcp.tool()
