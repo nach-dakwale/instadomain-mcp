@@ -75,6 +75,12 @@ async def request_transfer_code(order_id: str, request: Request):
 
     email = order.get("email")
     if not email:
+        registrant = order.get("registrant_contact") or {}
+        if isinstance(registrant, str):
+            import json
+            registrant = json.loads(registrant)
+        email = registrant.get("email")
+    if not email:
         raise HTTPException(status_code=400, detail="No email on file for this order")
 
     domain = f"{order['domain']}.{order['tld']}"
