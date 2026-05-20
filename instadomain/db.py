@@ -89,6 +89,28 @@ BEGIN
 END $$;
 """
 
+MIGRATION_TRANSFER_VERIFICATIONS = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'transfer_verifications'
+    ) THEN
+        CREATE TABLE transfer_verifications (
+            id                  TEXT PRIMARY KEY,
+            order_id            TEXT NOT NULL REFERENCES orders(id),
+            code_hash           TEXT NOT NULL,
+            code_expires_at     TIMESTAMPTZ NOT NULL,
+            verified_token      TEXT,
+            token_expires_at    TIMESTAMPTZ,
+            created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX idx_transfer_verifications_order_id
+            ON transfer_verifications (order_id);
+    END IF;
+END $$;
+"""
+
 
 async def init_pool(database_url: str) -> asyncpg.Pool:
     """Create the connection pool and run the schema migration."""
@@ -100,6 +122,7 @@ async def init_pool(database_url: str) -> asyncpg.Pool:
         await conn.execute(MIGRATION_X402_PAYER)
         await conn.execute(MIGRATION_REGISTRANT_CONTACT)
         await conn.execute(MIGRATION_RENEWAL_SESSION)
+        await conn.execute(MIGRATION_TRANSFER_VERIFICATIONS)
     return _pool
 
 

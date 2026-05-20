@@ -162,6 +162,26 @@ async def send_renewal_failure_alert(
     )
 
 
+async def send_transfer_verification_email(
+    *,
+    to_email: str | None,
+    domain: str,
+    code: str,
+) -> None:
+    body = (
+        f"A domain transfer was requested for {domain}.\n\n"
+        f"Your verification code is: {code}\n\n"
+        f"This code expires in 15 minutes.\n\n"
+        f"If you did not request this, your domain is safe — ignore this email."
+    )
+    await asyncio.to_thread(
+        _send_email_sync,
+        to_email=to_email,
+        subject=f"InstaDomain transfer verification: {domain}",
+        body=body,
+    )
+
+
 async def send_refund_email(
     *,
     to_email: str | None,

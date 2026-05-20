@@ -111,6 +111,7 @@ def create_app() -> FastAPI:
     from instadomain.routes_x402 import router as x402_router
     from instadomain.routes_mpp import router as mpp_router
     from instadomain.routes_manage import router as manage_router
+    from instadomain.routes_transfer import router as transfer_router
 
     app.include_router(static_router)
     app.include_router(check_router)
@@ -118,6 +119,7 @@ def create_app() -> FastAPI:
     app.include_router(x402_router)
     app.include_router(mpp_router)
     app.include_router(manage_router)
+    app.include_router(transfer_router)
 
     return app
 

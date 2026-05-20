@@ -136,14 +136,18 @@ async def get_domain_status(order_id: str) -> dict:
 
 
 @mcp.tool()
-async def get_transfer_code(order_id: str) -> dict:
-    """Get the EPP/transfer authorization code for a completed domain purchase.
+async def request_transfer_code(order_id: str) -> dict:
+    """Start the transfer verification flow by sending a code to the registrant's email.
+
+    Always call this before get_transfer_code or unlock_domain.
+    Then ask the user to check their email and provide the 6-digit code,
+    then call verify_transfer_code to get a transfer_token.
 
     Args:
         order_id: The order ID of a completed domain purchase.
     """
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
-        resp = await client.get(f"/transfer-code/{order_id}")
+        resp = await client.post(f"/transfer/request-code/{order_id}")
         if resp.status_code in {400, 404}:
             return resp.json()
         resp.raise_for_status()
@@ -151,15 +155,61 @@ async def get_transfer_code(order_id: str) -> dict:
 
 
 @mcp.tool()
-async def unlock_domain(order_id: str) -> dict:
-    """Remove the registrar transfer lock from a completed domain purchase.
+async def verify_transfer_code(order_id: str, code: str) -> dict:
+    """Verify the email code and get a transfer token valid for 15 minutes.
+
+    Call this after request_transfer_code and the user provides their code.
+    Pass the returned transfer_token to get_transfer_code or unlock_domain.
 
     Args:
         order_id: The order ID of a completed domain purchase.
+        code: The 6-digit code from the verification email.
     """
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
-        resp = await client.post(f"/unlock/{order_id}")
+        resp = await client.post(
+            f"/transfer/verify-code/{order_id}", json={"code": code}
+        )
         if resp.status_code in {400, 404}:
+            return resp.json()
+        resp.raise_for_status()
+        return resp.json()
+
+
+@mcp.tool()
+async def get_transfer_code(order_id: str, transfer_token: str) -> dict:
+    """Get the EPP/transfer authorization code for a completed domain purchase.
+
+    Requires a transfer_token from verify_transfer_code.
+
+    Args:
+        order_id: The order ID of a completed domain purchase.
+        transfer_token: Token returned by verify_transfer_code.
+    """
+    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
+        resp = await client.get(
+            f"/transfer-code/{order_id}",
+            headers={"x-transfer-token": transfer_token},
+        )
+        if resp.status_code in {400, 401, 404}:
+            return resp.json()
+        resp.raise_for_status()
+        return resp.json()
+
+
+@mcp.tool()
+async def unlock_domain(order_id: str, transfer_token: str) -> dict:
+    """Remove the registrar transfer lock. Requires a transfer_token from verify_transfer_code.
+
+    Args:
+        order_id: The order ID of a completed domain purchase.
+        transfer_token: Token returned by verify_transfer_code.
+    """
+    async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
+        resp = await client.post(
+            f"/unlock/{order_id}",
+            headers={"x-transfer-token": transfer_token},
+        )
+        if resp.status_code in {400, 401, 404}:
             return resp.json()
         resp.raise_for_status()
         return resp.json()

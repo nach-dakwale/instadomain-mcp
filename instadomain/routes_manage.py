@@ -6,7 +6,7 @@ import logging
 import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Header, Query, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 
 from instadomain.config import Settings
 from instadomain.domain_helpers import _get_price
@@ -192,61 +192,3 @@ async def send_expiration_reminders(
     return {"count": sent, "errors": errors}
 
 
-@router.get("/transfer-code/{order_id}")
-async def get_transfer_code(order_id: str, request: Request):
-    """Get the EPP/transfer authorization code for a completed domain order."""
-    pool = request.app.state.pool
-    opensrs = request.app.state.opensrs
-
-    order = await get_order(pool, order_id)
-    if order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
-    if order["status"] != "complete":
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Order is in status '{order['status']}', "
-                "must be 'complete' to get transfer code"
-            ),
-        )
-
-    domain = f"{order['domain']}.{order['tld']}"
-    try:
-        auth_code = await asyncio.to_thread(
-            opensrs.get_transfer_auth_code, domain
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502, detail=f"Failed to get transfer code: {exc}"
-        )
-
-    return {"order_id": order_id, "domain": domain, "auth_code": auth_code}
-
-
-@router.post("/unlock/{order_id}")
-async def unlock_domain(order_id: str, request: Request):
-    """Remove the registrar transfer lock from a completed domain order."""
-    pool = request.app.state.pool
-    opensrs = request.app.state.opensrs
-
-    order = await get_order(pool, order_id)
-    if order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
-    if order["status"] != "complete":
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Order is in status '{order['status']}', "
-                "must be 'complete' to unlock"
-            ),
-        )
-
-    domain = f"{order['domain']}.{order['tld']}"
-    try:
-        await asyncio.to_thread(opensrs.unlock_domain, domain)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502, detail=f"Failed to unlock domain: {exc}"
-        )
-
-    return {"order_id": order_id, "domain": domain, "unlocked": True}
