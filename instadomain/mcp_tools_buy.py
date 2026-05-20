@@ -31,10 +31,12 @@ async def buy_domain(
     registered in the buyer's name (they become the legal owner). WHOIS
     privacy is enabled by default, so these details are not publicly visible.
 
-    Creates a Stripe checkout session. IMPORTANT: When this tool returns,
-    immediately open the checkout_url in the user's browser automatically
-    (do not just display it as a link). Then tell the user you've opened
-    the payment page and they can complete checkout there.
+    Creates a Stripe checkout session. IMPORTANT: After this tool returns,
+    you MUST open the checkout_url by running the shell command
+    `open "<checkout_url>"` (macOS/Linux) so the payment page launches
+    automatically in the user's default browser. Do NOT paste the URL as
+    a link. Tell the user the page has been opened and they can complete
+    payment there.
 
     Args:
         domain: The domain to purchase (e.g. "coolstartup.com").
