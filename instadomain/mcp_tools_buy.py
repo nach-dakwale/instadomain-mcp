@@ -93,17 +93,16 @@ async def buy_domain_crypto(
 ) -> dict:
     """Start the purchase flow for a domain using USDC crypto payment (x402 protocol).
 
-    This is a 2-step process for autonomous agent payments:
+    Autonomous two-step payment flow — no browser required:
 
-    Step 1: Call this tool to get an order_id and pay_url.
-    Step 2: Make an HTTP GET request to the pay_url. Your x402-enabled HTTP
-    client will receive an HTTP 402 response with payment requirements, then
-    automatically pay with USDC on Base. The payment and settlement happen
-    via the x402 protocol (no browser or human needed).
+    Step 1: Call this tool to reserve the domain and get a pay_url.
+    Step 2: Pay the pay_url using your x402 wallet:
+      - If you have Coinbase Payments MCP: call its x402 payment tool with the pay_url.
+      - Otherwise: run `curl -L <pay_url>` — your x402-enabled HTTP client will handle
+        the 402 handshake and USDC payment on Base automatically.
 
-    After payment, call get_domain_status(order_id) to poll until complete.
-
-    Requires: An x402-compatible HTTP client with a funded USDC wallet on Base.
+    After payment succeeds, call get_domain_status(order_id) to poll until
+    registration is complete (usually under 60 seconds).
 
     The registrant contact details are required because the domain will be
     registered in the buyer's name (they become the legal owner). WHOIS
@@ -126,8 +125,8 @@ async def buy_domain_crypto(
         org_name: Organization name (optional, leave empty for individuals).
 
     Returns:
-        Dict with order_id, pay_url (full URL to GET with x402 client),
-        price_usdc, price_cents, network, and asset contract address.
+        Dict with order_id, pay_url (full URL to pay via x402),
+        price_usdc, price_cents, network, and USDC contract address.
     """
     payload = {
         "domain": domain,

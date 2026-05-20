@@ -42,10 +42,13 @@ async def check_domain(domain: str) -> dict:
     two things before proceeding:
     1. Confirm they want to purchase at that price.
     2. Which payment method they prefer:
-       - "card" / "Stripe" → call buy_domain (opens browser checkout)
-       - "crypto" / "USDC" / "x402" → call buy_domain_crypto (no browser needed, pays via x402)
-       - "MPP" / "agent" → call buy_domain_mpp (Stripe agent payments, no browser)
-    Default to buy_domain (Stripe) only if the user gives no preference.
+       - "card" / "Stripe" → call buy_domain (opens Stripe checkout in browser)
+       - "crypto" / "USDC" / "x402" → call buy_domain_crypto (autonomous USDC payment,
+         no browser; requires Coinbase Payments MCP or another x402 wallet)
+       - "MPP" / "agent pay" → call buy_domain_mpp (Stripe agent payments via
+         Shared Payment Token, no browser)
+    If the user has Coinbase Payments MCP configured in their session, suggest
+    crypto as the default. Otherwise default to buy_domain (Stripe).
 
     Args:
         domain: The full domain name to check (e.g. "coolstartup.com").
