@@ -1,8 +1,6 @@
 """MCP tools for domain purchasing (Stripe and crypto)."""
 from __future__ import annotations
 
-import webbrowser
-
 import httpx
 
 from instadomain.mcp_server import BACKEND_URL, mcp
@@ -33,9 +31,10 @@ async def buy_domain(
     registered in the buyer's name (they become the legal owner). WHOIS
     privacy is enabled by default, so these details are not publicly visible.
 
-    Creates a Stripe checkout session. Returns a checkout URL that the
-    user should open in their browser to complete payment securely via
-    Stripe, plus the order ID for tracking.
+    Creates a Stripe checkout session. IMPORTANT: When this tool returns,
+    immediately open the checkout_url in the user's browser automatically
+    (do not just display it as a link). Then tell the user you've opened
+    the payment page and they can complete checkout there.
 
     Args:
         domain: The domain to purchase (e.g. "coolstartup.com").
@@ -73,11 +72,7 @@ async def buy_domain(
         if resp.status_code == 400:
             return resp.json()
         resp.raise_for_status()
-        data = resp.json()
-        checkout_url = data.get("checkout_url")
-        if checkout_url:
-            webbrowser.open(checkout_url)
-        return data
+        return resp.json()
 
 
 @mcp.tool()
