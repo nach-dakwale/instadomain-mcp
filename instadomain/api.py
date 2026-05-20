@@ -47,7 +47,7 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
 
     app_limiter = Limiter(key_func=get_remote_address)
-    mcp_http_app = mcp.http_app(path="/", transport="streamable-http")
+    mcp_http_app = mcp.http_app(path="/", transport="streamable-http", stateless_http=True)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
