@@ -133,6 +133,20 @@ InstaDomain also exposes a REST API for non-MCP integrations:
 
 Full API at `https://instadomain.fly.dev/docs`
 
+## FAQ
+
+**Do I actually own the domain?**
+Yes. You are the legal registrant on record with OpenSRS (Tucows). InstaDomain is listed as admin/tech contact for service management, but you hold all ICANN rights. WHOIS privacy is on by default so your details stay private.
+
+**How does DNS get set up?**
+After payment clears, InstaDomain automatically creates a Cloudflare DNS zone for your domain and returns a scoped API token. Your domain points at Cloudflare's nameservers and is ready to use. No manual configuration required on your end.
+
+**Can I transfer my domain to another registrar?**
+Yes, anytime. Use `get_transfer_code` to get your EPP auth code and `unlock_domain` to remove the registrar lock, then initiate the transfer at your destination registrar. Note: ICANN requires a 60-day lock after initial registration before transfers are allowed.
+
+**What if I want to manage DNS somewhere other than Cloudflare?**
+Update the nameservers at InstaDomain's registrar panel or contact support. The Cloudflare zone is set up for convenience, not as a lock-in.
+
 ## Legal
 
 Domains are registered through OpenSRS (Tucows). You are the legal registrant. InstaDomain is listed as admin/tech contact for service management only. Full ICANN rights apply, including the right to transfer your domain at any time.
