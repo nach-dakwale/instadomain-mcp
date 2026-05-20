@@ -25,6 +25,19 @@ def test_root_serves_landing_page():
     assert 'href="/refunds"' in response.text
 
 
+def test_landing_page_includes_faq_section():
+    app = create_app()
+    app.router.lifespan_context = _noop_lifespan
+
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert "Do I actually own the domain?" in response.text
+    assert "How does DNS get set up" in response.text
+    assert "Can I transfer my domain" in response.text
+    assert "DNS somewhere other than Cloudflare" in response.text
+
+
 def test_refunds_page_renders():
     app = create_app()
     app.router.lifespan_context = _noop_lifespan
