@@ -38,8 +38,14 @@ mcp = FastMCP("instadomain")
 async def check_domain(domain: str) -> dict:
     """Check if a domain is available for purchase and get its price.
 
-    Always call this before buy_domain. Show the user the price_display
-    value (e.g. "$18.12") and confirm they want to proceed before buying.
+    Always call this before buying. After showing the price, ask the user
+    two things before proceeding:
+    1. Confirm they want to purchase at that price.
+    2. Which payment method they prefer:
+       - "card" / "Stripe" → call buy_domain (opens browser checkout)
+       - "crypto" / "USDC" / "x402" → call buy_domain_crypto (no browser needed, pays via x402)
+       - "MPP" / "agent" → call buy_domain_mpp (Stripe agent payments, no browser)
+    Default to buy_domain (Stripe) only if the user gives no preference.
 
     Args:
         domain: The full domain name to check (e.g. "coolstartup.com").
