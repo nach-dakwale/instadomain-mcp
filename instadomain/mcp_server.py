@@ -11,6 +11,7 @@ import asyncio
 import os
 
 import httpx
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from fastmcp import FastMCP
 
@@ -24,6 +25,98 @@ POLL_TIMEOUT_SECONDS = 120
 BULK_LIMIT = 50
 
 # ---------------------------------------------------------------------------
+# Output contracts for read-only check/suggest tools
+#
+# These models describe only fields proven by every real backend path
+# (instadomain/routes_check.py). Unknown upstream metadata passes through
+# untyped via extra="allow" rather than being invented or dropped.
+# ---------------------------------------------------------------------------
+
+
+class _PassthroughModel(BaseModel):
+    """Strictly validate guaranteed fields and tolerate unknown metadata."""
+
+    model_config = ConfigDict(extra="allow", strict=True)
+
+
+class CheckDomainResult(_PassthroughModel):
+    """Shape of GET /check/{domain}.
+
+    ``domain`` and ``available`` are guaranteed by every path. Price fields
+    are absent when the domain is taken, null when pricing fails, and set
+    only on the successful-price path.
+    """
+
+    domain: str
+    available: bool
+    price_cents: int | None = None
+    price_display: str | None = None
+    wholesale_cents: int | None = None
+
+
+class DomainAvailabilityItem(_PassthroughModel):
+    """Per-domain item from RDAP bulk checks (no pricing).
+
+    Only ``domain`` and ``available`` are guaranteed; affiliate
+    ``register_urls`` is attached solely to available domains when enabled.
+    """
+
+    domain: str
+    available: bool
+    register_urls: dict[str, str] | None = None
+
+
+class BulkCheckSummary(_PassthroughModel):
+    total: int
+    available: int
+    taken: int
+
+
+class BulkCheckSuccess(_PassthroughModel):
+    """Shape of POST /check (RDAP bulk availability)."""
+
+    summary: BulkCheckSummary
+    available: list[DomainAvailabilityItem]
+    taken: list[DomainAvailabilityItem]
+
+
+class BulkLimitError(_PassthroughModel):
+    """Truthful error arm when the bulk input exceeds BULK_LIMIT."""
+
+    error: str
+    limit: int
+
+
+class SuggestSummary(_PassthroughModel):
+    available: int
+    taken: int
+
+
+class SuggestDomainsSuccess(_PassthroughModel):
+    """Shape of GET /suggest. Note: no ``summary.total``."""
+
+    keyword: str
+    candidates_checked: int
+    summary: SuggestSummary
+    available: list[DomainAvailabilityItem]
+    taken: list[DomainAvailabilityItem]
+
+
+# FastMCP wraps union return annotations under structuredContent.result. The
+# three tools historically returned their dictionaries at the top level, so
+# supply explicit object-root schemas and keep the raw validated dictionaries
+# unwrapped. Validation below is strict and fail-closed; returning the original
+# object preserves absent versus explicitly-null upstream fields and legacy
+# text/structured payload shape.
+CHECK_DOMAIN_OUTPUT_SCHEMA = CheckDomainResult.model_json_schema()
+BULK_CHECK_OUTPUT_SCHEMA = {
+    "type": "object",
+    **TypeAdapter(BulkCheckSuccess | BulkLimitError).json_schema(),
+}
+SUGGEST_DOMAINS_OUTPUT_SCHEMA = SuggestDomainsSuccess.model_json_schema()
+
+
+# ---------------------------------------------------------------------------
 # MCP server
 # ---------------------------------------------------------------------------
 
@@ -34,7 +127,7 @@ mcp = FastMCP("instadomain")
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(output_schema=CHECK_DOMAIN_OUTPUT_SCHEMA)
 async def check_domain(domain: str) -> dict:
     """Check if a domain is available for purchase and get its price.
 
@@ -59,10 +152,12 @@ async def check_domain(domain: str) -> dict:
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=15) as client:
         resp = await client.get(f"/check/{domain}")
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        CheckDomainResult.model_validate(data)
+        return data
 
 
-@mcp.tool()
+@mcp.tool(output_schema=BULK_CHECK_OUTPUT_SCHEMA)
 async def check_domains_bulk(domains: list[str]) -> dict:
     """Check availability of up to 50 domain names in one call.
 
@@ -73,18 +168,24 @@ async def check_domains_bulk(domains: list[str]) -> dict:
         domains: List of domain names to check (max 50).
     """
     if len(domains) > BULK_LIMIT:
-        return {
-            "error": f"Too many domains: {len(domains)} provided, maximum is {BULK_LIMIT}.",
+        data = {
+            "error": (
+                f"Too many domains: {len(domains)} provided, maximum is {BULK_LIMIT}."
+            ),
             "limit": BULK_LIMIT,
         }
+        BulkLimitError.model_validate(data)
+        return data
 
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=30) as client:
         resp = await client.post("/check", json={"domains": domains})
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        BulkCheckSuccess.model_validate(data)
+        return data
 
 
-@mcp.tool()
+@mcp.tool(output_schema=SUGGEST_DOMAINS_OUTPUT_SCHEMA)
 async def suggest_domains(keyword: str) -> dict:
     """Generate domain name ideas from a keyword and check their availability.
 
@@ -94,7 +195,9 @@ async def suggest_domains(keyword: str) -> dict:
     async with httpx.AsyncClient(base_url=BACKEND_URL, timeout=30) as client:
         resp = await client.get("/suggest", params={"keyword": keyword})
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        SuggestDomainsSuccess.model_validate(data)
+        return data
 
 
 # ---------------------------------------------------------------------------
